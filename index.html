@@ -48,7 +48,7 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 <label>Retail subscription (x) — small investors like us</label><input id="retail" type="number" step="any" value="29.77">
 <label>OFS % of the issue — share of the IPO where existing owners are selling THEIR shares (money goes to them, not the company). 0% = fully fresh issue.</label><input id="ofs" type="number" step="any" value="0">
 <label>Price vs similar listed companies (valuation)</label><select id="pe"><option value="cheap">Cheaper than peers</option><option value="fair" selected>About fair</option><option value="costly">Much costlier than peers</option></select>
-<label>GMP % (optional) — Grey Market Premium: the unofficial extra price buyers pay before listing. 34% GMP roughly hints at a ~34% listing gain.</label><input id="gmp" type="number" step="any" value="34">
+<label>GMP % (optional) — Grey Market Premium: the unofficial extra price buyers pay before listing. 34% GMP roughly hints at a ~34% listing gain.</label><input id="gmp" type="number" step="any" value="29.33">
 <label>GMP trend in the last 3 days</label><select id="gmp_trend"><option value="up" selected>Rising ↗</option><option value="flat">Steady →</option><option value="down">Falling ↘</option></select>
 <button onclick="predict()">Predict listing gain</button>
 <div class="small" style="margin-top:6px">Which inputs matter: the AI model runs on total subscription, issue size, price and market mood. The QIB / NII / retail split and OFS drive the risk flags and the final verdict.</div>
