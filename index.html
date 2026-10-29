@@ -335,6 +335,8 @@ function pickIPO(passed){
  if(!local)document.getElementById('iponote').textContent='Fetching LIVE numbers for '+name+'… (usually ~2s; up to ~50s only if the free server was asleep)';
  fetchIPO(name).then(d=>{
    if(!d.found)throw new Error(d.error||'not found');
+   if(local&&d.name){ const dn=d.name.toLowerCase().replace(/[^a-z0-9]/g,''), ln=local.name.toLowerCase().replace(/[^a-z0-9]/g,'');
+     if(dn&&!ln.includes(dn)&&!dn.includes(ln))return; } // live server matched a different IPO — keep the saved panel
    const confBadge = d.confidence==='high'?'\uD83D\uDFE2 Trust: HIGH — two sources agree':(d.confidence==='medium'?'\uD83D\uDFE1 Trust: MEDIUM — check the notes below':'\uD83D\uDD34 Trust: LOW — thin data, verify before acting');
    const miss=['price','size_cr','total','qib','gmp_pct'].filter(k=>d[k]===null||d[k]===undefined);
    const note=`<b>${d.name}</b> — ${d.status||''}<br>${confBadge}<br>\uD83D\uDD51 Live-fetched ${d.fetched_at} from <a href="${d.sources.primary}" target="_blank">IPOTrack</a>${d.sources.cross_check?` + <a href="${d.sources.cross_check}" target="_blank">IPOWatch</a>`:''} cross-check.<br>`+
