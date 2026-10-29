@@ -23,10 +23,10 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 
 <div class="card" style="border:2px solid #2f81f7">
 <div style="font-size:19px"><b>🔍 One-Tap IPO Check</b></div>
-<div class="small" style="margin:4px 0 8px">Type ANY IPO name \u2192 the app fetches its live numbers, analyses everything, and gives one clear answer: apply or not, and why. Nothing else to fill.</div>
+<div class="small" style="margin:4px 0 8px">Type ANY IPO name → the app fetches its live numbers, analyses everything, and gives one clear answer: apply or not, and why. Nothing else to fill.</div>
 <input id="hero_name" list="herolist" placeholder="Type IPO name — e.g. BLS Polymers" autocomplete="off" style="font-size:17px;padding:12px">
 <datalist id="herolist"></datalist>
-<button onclick="heroAnalyse()" style="width:100%;font-size:18px;padding:13px;margin-top:8px">Analyse IPO \u2192 Apply or Not?</button>
+<button onclick="heroAnalyse()" style="width:100%;font-size:18px;padding:13px;margin-top:8px">Analyse IPO → Apply or Not?</button>
 <div id="hero_result" style="margin-top:10px"></div>
 </div>
 <div class="card live"><b>🔴 LIVE TEST — BLS Polymers (your IPO)</b>
@@ -50,7 +50,7 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 <div id="out1" style="margin-top:14px"></div>
 </div>
 
-<div class="card"><b>💡 GMP is low — what should you do?</b>
+<div class="card"><b>💡 Guide: GMP is low — what should you do?</b>
 <div class="reasons" style="margin-top:6px">GMP is unofficial and can be pushed up or down by operators — never decide on GMP alone. Use this 2-check rule:<br>
 • <b>GMP low + QIB strong (10x+):</b> institutions see value the grey market is missing. This can be a quiet good apply — check valuation and decide.<br>
 • <b>GMP low + QIB weak (below 2x):</b> both signals agree there is no demand. <b>Skip it</b> — this is where most listing losses happen.<br>
@@ -74,7 +74,7 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 </div>
 
 <div class="card"><b>📊 ExitIQ track record (we publish our misses too)</b>
-<div class="reasons" style="margin-top:6px">• Jio Platforms: predicted +24.8% → actual listing +21.4% ✅<br>• BLS Polymers: model +25% / GMP rule +34% → actual: <b>listing on 3 Nov — result will be posted here</b><br>• News mood check (29 Oct, by Muse): positive — GMP rose 4 sessions in a row, coverage upbeat, no negative company news found.</div></div>
+<div class="reasons" style="margin-top:6px">• Jio Platforms: predicted +24.8% → actual listing +21.4% ✅<br>• BLS Polymers: web model +17% \u00B7 research research model +25% \u00B7 GMP rule +34% → actual: <b>listing on 3 Nov — result will be posted here</b><br>• News mood check (29 Oct, by Muse): positive — GMP rose 4 sessions in a row, coverage upbeat, no negative company news found.</div></div>
 <div class="small">In plain words: tested on IPOs the model had never seen, it pointed the right way (up or down) for about 73 out of 100, and its gain guess was off by ~15% on average. The simple GMP rule was slightly sharper (~11% off). Treat every number here as a strong hint, not a promise. This is a student-built decision helper, not SEBI-registered investment advice.</div>
 
 <script>
@@ -219,6 +219,13 @@ function renderHero(p){
 document.getElementById('hero_name').addEventListener('keydown',e=>{if(e.key==='Enter')heroAnalyse();});
 
 const API_BASE = 'https://ipo-exitiq-api.onrender.com';
+function fetchIPO(name, attempt){
+ const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),45000);
+ return fetch(API_BASE+'/ipo?name='+encodeURIComponent(name),{signal:ctl.signal})
+  .then(r=>{clearTimeout(to);return r.json();})
+  .catch(e=>{clearTimeout(to); if(!attempt){return new Promise(res=>setTimeout(res,2000)).then(()=>fetchIPO(name,1));} throw e;});
+}
+
 function applyData(p, noteText){
  const set=(id,v)=>{if(v!==null&&v!==undefined)document.getElementById(id).value=v;};
  set('price',p.price); set('size',p.size_cr); set('lot',p.lot); set('sub_x',p.total);
@@ -233,7 +240,7 @@ function pickIPO(){
  if(!name)return;
  const local=(IPOS_LIST||[]).find(x=>x.name.toLowerCase()===name.toLowerCase());
  document.getElementById('iponote').textContent='Fetching LIVE numbers for '+name+'… (first fetch can take ~30–50s while the free server wakes up)';
- fetch(API_BASE+'/ipo?name='+encodeURIComponent(name)).then(r=>r.json()).then(d=>{
+ fetchIPO(name).then(d=>{
    if(!d.found)throw new Error(d.error||'not found');
    const confBadge = d.confidence==='high'?'\uD83D\uDFE2 Trust: HIGH — two sources agree':(d.confidence==='medium'?'\uD83D\uDFE1 Trust: MEDIUM — check the notes below':'\uD83D\uDD34 Trust: LOW — thin data, verify before acting');
    const miss=['price','size_cr','total','qib','gmp_pct'].filter(k=>d[k]===null||d[k]===undefined);
@@ -243,7 +250,7 @@ function pickIPO(){
    applyData(d, note);
  }).catch(e=>{
    if(local){ applyData(local, 'Live server unreachable — showing my last-saved data for '+local.name+' ('+IPOS_UPDATED+'). '+local.status); }
-   else{ document.getElementById('iponote').textContent='Could not fetch live data for "'+name+'" ('+e.message+'). Check the spelling, or fill the numbers manually below.'; }
+   else{ document.getElementById('iponote').textContent='Could not fetch live data for "'+name+'" ('+e.message+'). Check the spelling, or fill the numbers manually below.'; const hr=document.getElementById('hero_result'); if(hr&&document.getElementById('hero_name').value.trim()){ if(window.__heroTimer){clearInterval(window.__heroTimer);window.__heroTimer=null;} hr.innerHTML='<span class="reasons">\u26A0\uFE0F Live fetch failed for '+name+' — the server may be waking up or the name may not match. Wait 20 seconds and tap Analyse again, or check the spelling.</span>'; } }
  });
 }
 document.getElementById('iponame').addEventListener('change',pickIPO);
