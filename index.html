@@ -78,7 +78,7 @@ function predict(){
  <div class="verdict ${cls}">${verdict}</div>
  <div class="reasons">Profit probability: <b>${(prob*100).toFixed(0)}%</b> \u00B7 Expected listing value \u2248 <b>\u20B9${(priceV*(1+gain/100)).toFixed(0)}/share</b> (${perLot>=0?'+':''}\u20B9${perLot.toFixed(0)} per lot)
  ${!Number.isNaN(g)?`<br>GMP rule estimate: <b>${g>=0?'+':''}${g}%</b> \u2014 historically our most accurate single signal, compare both.`:''}
- ${trendNote}<br>Biggest driver the model learned: <b>total subscription</b> (33% of all importance), then issue size and broker recommendations.</div>`;
+ ${trendNote}<br>How to read two different numbers: the true listing usually lands <b>between the model and GMP estimates</b> \u2014 when both point the same way (like BLS), trust the direction.<br>Biggest driver the model learned: <b>total subscription</b> (33% of all importance), then issue size and broker recommendations.</div>`;
 }
 function sellSignal(){
  const issue=parseFloat(document.getElementById('s_issue').value), cur=parseFloat(document.getElementById('s_cur').value), peak=parseFloat(document.getElementById('s_peak').value), day=parseFloat(document.getElementById('s_day').value)||0;
