@@ -1,255 +1,318 @@
-"""IPO ExitIQ live-data API — multi-agent edition.
+"""IPO ExitIQ live-data API — multi-agent design.
 
-A small team of specialised agents works every request IN PARALLEL:
-  1. Data Scout      — resolves the IPO name and reads its live IPOTrack page
-                       (price, lot, size, subscription split, GMP, OFS, dates).
-  2. Cross-Checker   — independently reads IPOWatch and verifies every number
-                       the Scout found; disagreements are flagged, gaps filled.
-  3. Sentiment Agent — reads the latest Google News headlines about the IPO
-                       and scores the news mood (positive / negative / mixed).
-The merged, cross-checked result is returned with per-agent status + timing,
-a confidence grade, source links and an IST fetch timestamp. Figures belong
-to their sources; nothing is guessed — missing fields stay null.
+Three agents run in parallel for each lookup:
+  1. Data Scout      — IPOTrack (primary numbers)
+  2. Cross-Checker   — IPOWatch (verification + gap-filling; disagreements flagged)
+  3. Sentiment Agent — Google News headlines (lexicon mood)
+
+Every field is copied from a real page or returned as null ("not published yet").
+Responses carry per-field sources, cross-check notes, a confidence level, an IST
+timestamp, and each agent's status.
 """
+import difflib
 import gzip
+import html as htmlmod
 import re
 import time
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
-from difflib import SequenceMatcher
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="IPO ExitIQ Live API — Multi-Agent")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"])
+app = FastAPI(title="IPO ExitIQ API")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"],
+                   allow_headers=["*"])
 
-UA = {"User-Agent": "Mozilla/5.0 (ExitIQ personal research tool)", "Accept-Encoding": "gzip"}
-_cache = {}
-_sitemap = {"slugs": [], "at": 0}
+UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/124 Safari/537.36")
 IST = timezone(timedelta(hours=5, minutes=30))
 
+_slug_cache = {"at": 0.0, "slugs": []}
+_ipo_cache = {}
+SLUG_TTL = 3600
+IPO_TTL = 1200
 
-def fetch(url: str) -> str:
-    req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=15) as r:
-        raw = r.read()
-        if r.headers.get("Content-Encoding") == "gzip":
-            raw = gzip.decompress(raw)
-        return raw.decode("utf-8", "ignore")
+
+def fetch(url: str, tries: int = 2) -> str:
+    last = None
+    for _ in range(max(1, tries)):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA,
+                                                       "Accept-Encoding": "gzip"})
+            with urllib.request.urlopen(req, timeout=25) as r:
+                raw = r.read()
+                if r.headers.get("Content-Encoding") == "gzip":
+                    raw = gzip.decompress(raw)
+            return raw.decode("utf-8", "ignore")
+        except Exception as e:  # transient source hiccup — one retry
+            last = e
+    raise last
 
 
 def text_of(html: str) -> str:
-    t = re.sub(r"<script[\s\S]*?</script>", " ", html)
-    t = re.sub(r"<[^>]+>", " ", t)
-    return re.sub(r"\s+", " ", t)
+    t = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", html)
+    t = re.sub(r"(?s)<[^>]+>", " ", t)
+    return re.sub(r"\s+", " ", htmlmod.unescape(t)).strip()
 
-
-# ---------------- Data Scout: name resolution + IPOTrack ----------------
 
 def slugs() -> list:
-    if time.time() - _sitemap["at"] > 3600 or not _sitemap["slugs"]:
+    now = time.time()
+    if _slug_cache["slugs"] and now - _slug_cache["at"] < SLUG_TTL:
+        return _slug_cache["slugs"]
+    try:
         xml = fetch("https://ipotrack.in/sitemap-ipos.xml")
-        _sitemap["slugs"] = sorted(set(re.findall(r"ipotrack\.in/ipo/([a-z0-9\-]+)", xml)))
-        _sitemap["at"] = time.time()
-    return _sitemap["slugs"]
+        found = sorted(set(re.findall(r"ipotrack\.in/ipo/([a-z0-9\-]+)", xml)))
+        if found:
+            _slug_cache.update(at=now, slugs=found)
+    except Exception:
+        pass
+    return _slug_cache["slugs"]
 
 
 def slugify(name: str) -> str:
-    s = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-    return re.sub(r"-+", "-", s)
+    s = name.lower().replace("&", " and ")
+    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+    s = re.sub(r"-(ltd|limited|india|ind|the)$", "", s)
+    return s
+
+
+GENERIC = {"tech", "technologies", "technology", "india", "indian", "limited", "ltd",
+           "industries", "industry", "global", "enterprises", "solutions", "systems",
+           "international", "group", "company", "co", "and", "the"}
+
+
+def _concat_match(w, st):
+    """'sfctech' -> ['sfc','environmental','technologies']: the first slug token is
+    a prefix of w and the remainder prefixes some later token."""
+    if len(w) < 5 or not st:
+        return False
+    for i in range(2, len(w) - 1):
+        head, tail = w[:i], w[i:]
+        if st[0] == head or (len(head) >= 3 and st[0].startswith(head)):
+            if any(t.startswith(tail) for t in st[1:]):
+                return True
+    return False
 
 
 def resolve(name: str):
     want = slugify(name)
+    if not want:
+        return None
     pool = slugs()
     if want in pool:
         return want
-    wt = set(want.split("-"))
-    best, score = None, 0.0
+    wt = want.split("-")
+    wset = set(wt)
+    joined = "".join(wt)
+    best, best_score = None, 0.0
     for s in pool:
-        st = set(s.split("-"))
-        j = len(wt & st) / max(1, len(wt | st))
-        r = SequenceMatcher(None, want, s).ratio()
-        sc = max(j, r)
-        # Accept on real evidence only: shared name tokens, or a very close string.
-        # ('bombay' must resolve to Bombay Coated, and must NEVER resolve to 'boat'.)
-        if not ((j > 0 and (sc >= 0.40 or j >= 0.25)) or r >= 0.75):
-            continue
-        if sc > score:
-            best, score = s, sc
+        st = s.split("-")
+        sset = set(st)
+        inter = wset & sset
+        strong = {t for t in inter if t not in GENERIC}
+        j = len(inter) / len(wset | sset) if (wset | sset) else 0
+        r = difflib.SequenceMatcher(None, want, s).ratio()
+        ok = (bool(strong) and (j >= 0.25 or r >= 0.6)) or j >= 0.5 or r >= 0.8
+        if not ok and _concat_match(joined, st):
+            ok = True
+            j = max(j, 0.34)
+        if ok:
+            score = max(j, r)
+            if score > best_score:
+                best, best_score = s, score
     return best
 
 
 def num(pat, t, cast=float):
-    m = re.search(pat, t)
-    return cast(m.group(1)) if m else None
+    m = re.search(pat, t, re.I)
+    if not m:
+        return None
+    try:
+        return cast(m.group(1).replace(",", ""))
+    except Exception:
+        return None
 
 
 def parse_scout(html: str, slug: str) -> dict:
     t = text_of(html)
-    pairs = re.findall(r"price band(?: set at)? ₹[\d.]+ [–-] ₹([\d.]+),? lot(?: size)? (\d+) shares", t, re.I)
-    anchored = pairs[0] if pairs else None
-    band = re.search(r"price band ₹[\d.]+ [–-] ₹([\d.]+)", t, re.I)
-    gmp_m = (re.search(r"GMP Today ₹(-?[\d,]*\.?\d*) \((-?[\d.]+)%\)", t)
-             or re.search(r"GMP \(unofficial\) ₹(-?[\d,]*\.?\d*) \((-?[\d.]+)%\)", t, re.I))
-    subs = re.search(r"overall ([\d.]+)x, QIB ([\d.]+)x, retail ([\d.]+)x", t)
-    fresh = num(r"Fresh Issue ₹([\d.]+) Cr", t)
-    ofs = num(r"Offer For Sale \(OFS\) ₹([\d.]+) Cr", t)
-    total_cr = num(r"Total Issue Size ₹([\d.]+) Cr", t)
-    ofs_pct = None
-    if total_cr and ofs is not None:
-        ofs_pct = round(ofs / total_cr * 100, 1)
-    elif ofs is None and fresh and total_cr and abs(fresh - total_cr) < 0.6:
-        ofs_pct = 0.0
-    trend = None
-    if re.search(r"GMP[^\.]{0,80}rising", t, re.I):
-        trend = "up"
-    elif re.search(r"GMP[^\.]{0,80}falling", t, re.I):
-        trend = "down"
-    dates = []
-    for lbl in ("IPO Open Date", "IPO Close Date", "Listing Date"):
-        m = re.search(lbl + r" (\d{1,2} \w{3} \d{4})", t)
-        if m:
-            dates.append(f"{lbl.replace('IPO ', '')}: {m.group(1)}")
-    return {
-        "name": slug.replace("-", " ").title(),
-        "slug": slug,
-        "price": float(anchored[0]) if anchored else (float(band.group(1)) if band else None),
-        "lot": int(anchored[1]) if anchored else num(r"Lot Size (\d+) Shares", t, int),
-        "size_cr": total_cr,
-        "total": float(subs.group(1)) if subs else None,
-        "qib": float(subs.group(2)) if subs else None,
-        "retail": float(subs.group(3)) if subs else None,
-        "nii": num(r"(?:NII|Non-Institutional)[^.x]{0,30}?(\d+\.?\d*)x", t),
-        "gmp_pct": float(gmp_m.group(2)) if gmp_m else None,
-        "gmp_trend": trend,
-        "ofs_pct": ofs_pct,
-        "status": " · ".join(dates),
-        "source": f"https://ipotrack.in/ipo/{slug}",
-    }
+    d = {"name": slug.replace("-", " ").title(), "slug": slug}
+    band = re.search(r"(?:price band|issue price)[:\s]*(?:₹|rs\.?)?\s*(\d+(?:\.\d+)?)"
+                     r"\s*(?:-|–|to)\s*(?:₹|rs\.?)?\s*(\d+(?:\.\d+)?)", t, re.I)
+    if band:
+        d["price"] = float(band.group(2))
+    else:
+        d["price"] = num(r"₹\s*(\d+(?:\.\d+)?)\s*(?:per share|/share)", t)
+    d["lot"] = num(r"(?:lot size|market lot)[:\s]*(\d+)\s*(?:shares|equity shares)?",
+                   t, int)
+    d["size_cr"] = num(r"(?:issue size|total issue size)[:\s]*(?:₹|rs\.?)?\s*"
+                       r"([\d,]+(?:\.\d+)?)\s*(?:cr|crore)", t)
+    fresh = num(r"fresh issue[^₹]{0,30}?(?:₹|rs\.?)?\s*([\d,]+(?:\.\d+)?)\s*(?:cr|crore)", t)
+    ofs = num(r"offer for sale[^₹]{0,30}?(?:₹|rs\.?)?\s*([\d,]+(?:\.\d+)?)\s*(?:cr|crore)", t)
+    d["ofs_pct"] = (round(ofs / (fresh + ofs) * 100, 1)
+                    if fresh is not None and ofs is not None and (fresh + ofs) > 0 else None)
+    d["total"] = num(r"(?:subscribed|subscription)[^\d]{0,40}?(\d+(?:\.\d+)?)\s*(?:x|times)", t)
+    d["qib"] = num(r"qib[^\d]{0,30}?(\d+(?:\.\d+)?)\s*(?:x|times)", t)
+    d["nii"] = num(r"(?:nii|non[-\s]?institutional)[^\d]{0,30}?(\d+(?:\.\d+)?)\s*(?:x|times)", t)
+    d["retail"] = num(r"retail[^\d]{0,30}?(\d+(?:\.\d+)?)\s*(?:x|times)", t)
+    g = re.search(r"gmp\s*\(?unofficial\)?[^\d\-]{0,25}?(?:₹|rs\.?)?\s*(-?\d+(?:\.\d+)?)", t, re.I)
+    if not g:
+        g = re.search(r"gmp[^\d\-]{0,30}?(?:₹|rs\.?)?\s*(-?\d+(?:\.\d+)?)", t, re.I)
+    gp = re.search(r"gmp[^\d%]{0,40}?\((-?\d+(?:\.\d+)?)\s*%\)", t, re.I)
+    if gp:
+        d["gmp_pct"] = float(gp.group(1))
+    elif g and d.get("price"):
+        d["gmp_pct"] = round(float(g.group(1)) / d["price"] * 100, 2)
+    else:
+        d["gmp_pct"] = None
+    d["gmp_trend"] = None
+    for key, label in (("open_date", "open"), ("close_date", "close"),
+                       ("listing_date", "listing")):
+        m = re.search(label + r"\s*date[:\s]*([A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}"
+                              r"|\d{1,2}\s+[A-Za-z]{3,9},?\s+\d{4})", t, re.I)
+        d[key] = m.group(1) if m else None
+    d["status"] = ""
+    return d
 
 
-# ---------------- Cross-Checker: IPOWatch verification ----------------
+def run_checker(name: str, data: dict):
+    """Cross-check against IPOWatch: fill gaps; flag big disagreements."""
+    notes, filled = [], {}
+    try:
+        q = urllib.parse.quote(name)
+        srch = fetch(f"https://ipowatch.in/?s={q}")
+        links = re.findall(r'href="(https://ipowatch\.in/[^"]*ipo[^"]*)"', srch, re.I)
+        page = None
+        want = slugify(name).split("-")[0]
+        for lnk in links:
+            if want in lnk.lower():
+                page = fetch(lnk)
+                break
+        if page is None and links:
+            page = fetch(links[0])
+        if page:
+            t = text_of(page)
+            cand = {"total": num(r"(?:subscribed|subscription)[^\d]{0,40}?(\d+(?:\.\d+)?)\s*(?:x|times)", t),
+                    "qib": num(r"qib[^\d]{0,30}?(\d+(?:\.\d+)?)\s*(?:x|times)", t),
+                    "retail": num(r"retail[^\d]{0,30}?(\d+(?:\.\d+)?)\s*(?:x|times)", t),
+                    "nii": num(r"(?:nii|non[-\s]?institutional)[^\d]{0,30}?(\d+(?:\.\d+)?)\s*(?:x|times)", t)}
+            for k, v in cand.items():
+                if v is None:
+                    continue
+                if data.get(k) is None:
+                    filled[k] = v
+                elif data[k] and abs(v - data[k]) / max(data[k], 0.01) > 0.25 \
+                        and abs(v - data[k]) > 0.3:
+                    notes.append(f"{k}: sources disagree — IPOTrack {data[k]}x vs "
+                                 f"IPOWatch {v}x (showing IPOTrack)")
+            if filled:
+                notes.append("Some fields filled from IPOWatch (not on IPOTrack page)")
+    except Exception:
+        notes.append("Cross-check source unreachable this time")
+    return notes, filled
 
-def run_checker(html: str, data: dict):
-    cross = []
-    w = text_of(html).replace(" ", "|")
-    wcols = {}
-    for lbl, key in (("QIB", "qib"), ("NII", "nii"), ("RII", "retail"), ("Total", "total")):
-        m = re.search(lbl + r"\|([\d.]+)\|([\d.]+)\|([\d.]+)\|", w)
-        if m:
-            wcols[key] = [float(x) for x in m.groups()]
-    for key, days in wcols.items():
-        nz = [d for d in days if d > 0]
-        if not nz:
-            continue
-        prim = data.get(key)
-        v = min(nz, key=lambda d: abs(d - prim) / max(prim, 0.01)) if prim else nz[-1]
-        if prim is None:
-            data[key] = v
-            cross.append(f"{key}: filled from IPOWatch ({v}x)")
-        elif abs(prim - v) / max(v, 0.01) > 0.25 and abs(prim - v) > 0.3:
-            cross.append(f"WARNING {key}: IPOTrack {prim}x vs IPOWatch {v}x disagree")
-        else:
-            cross.append(f"{key}: both sources agree ({prim}x)")
-    return cross
 
-
-# ---------------- Sentiment Agent: news mood ----------------
-
-POS = {"surge", "soars", "soar", "strong", "robust", "gain", "gains", "rally", "bullish", "premium",
-       "bumper", "blockbuster", "stellar", "healthy", "growth", "jumps", "jump", "oversubscribed",
-       "multibagger", "listing gains", "positive", "boost", "record", "wins", "bags", "raises"}
-NEG = {"fall", "falls", "drop", "drops", "weak", "slump", "decline", "loss", "losses", "fraud",
-       "default", "caution", "risk", "risks", "plunge", "tumble", "muted", "tepid", "scam",
-       "probe", "penalty", "selloff", "sell-off", "crash", "warning", "downgrade", "defer"}
+POS = {"surge", "soar", "gain", "rally", "strong", "robust", "stellar", "blockbuster",
+       "bumper", "oversubscribed", "bullish", "record", "premium", "jump", "rise",
+       "positive", "boost", "debut"}
+NEG = {"fall", "drop", "weak", "decline", "slump", "loss", "negative", "concern",
+       "risk", "delay", "probe", "fraud", "selloff", "crash", "plunge",
+       "tepid", "lukewarm"}
 
 
 def run_sentiment(name: str) -> dict:
-    q = urllib.parse.quote(f"{name} IPO")
-    xml = fetch(f"https://news.google.com/rss/search?q={q}&hl=en-IN&gl=IN&ceid=IN:en")
-    titles = re.findall(r"<item>[\s\S]*?<title>([^<]+)</title>", xml)[:8]
-    heads, pos, neg = [], 0, 0
-    for raw in titles:
-        title = re.sub(r"\s+-\s+[^-]+$", "", raw).strip()
-        low = title.lower()
-        pos += sum(1 for w in POS if w in low)
-        neg += sum(1 for w in NEG if w in low)
-        if len(heads) < 3 and title:
-            heads.append(title)
-    score = round((pos - neg) / max(1, pos + neg), 2) if (pos + neg) else 0.0
-    label = "Positive" if score >= 0.35 else ("Negative" if score <= -0.35 else "Mixed / no clear signal")
-    return {"score": score, "label": label, "headlines": heads, "analysed": len(titles)}
+    try:
+        q = urllib.parse.quote(f"{name} IPO")
+        xml = fetch(f"https://news.google.com/rss/search?q={q}&hl=en-IN&gl=IN&ceid=IN:en")
+        titles = re.findall(r"<title>(.*?)</title>", xml, re.S)
+        heads = []
+        for tt in titles[1:12]:
+            clean = htmlmod.unescape(re.sub(r"<!\[CDATA\[|\]\]>", "", tt)).strip()
+            clean = re.sub(r"\s+-\s+[^-]+$", "", clean)
+            if clean and "google" not in clean.lower():
+                heads.append(clean)
+        heads = heads[:8]
+        pos = neg = 0
+        for h in heads:
+            low = h.lower()
+            words = set(re.findall(r"[a-z]+", low))
+            pos += len(words & POS)
+            neg += len(words & NEG)
+        tot = pos + neg
+        score = round((pos - neg) / tot, 2) if tot else 0.0
+        mood = "positive" if score > 0.25 else "negative" if score < -0.25 else "mixed"
+        return {"ok": True, "mood": mood, "score": score, "headlines": heads,
+                "pos_hits": pos, "neg_hits": neg}
+    except Exception:
+        return {"ok": False, "mood": None, "score": None, "headlines": [],
+                "pos_hits": 0, "neg_hits": 0}
 
-
-# ---------------- Orchestrator ----------------
 
 @app.get("/")
 def home():
-    return {"app": "IPO ExitIQ Live API — Multi-Agent", "agents": ["Data Scout", "Cross-Checker", "Sentiment Agent"],
-            "usage": "/ipo?name=BLS Polymers", "ipos_indexed": len(_sitemap["slugs"])}
+    return {"ok": True, "service": "ipo-exitiq-api",
+            "agents": ["data-scout", "cross-checker", "sentiment"],
+            "endpoints": ["/ipo?name=", "/search?q="],
+            "ipos_indexed": len(slugs())}
 
 
 @app.get("/search")
 def search(q: str = ""):
-    ql = slugify(q)
-    return {"names": [s.replace("-", " ").title() for s in slugs() if ql in s][:15]}
+    w = slugify(q)
+    if not w:
+        return {"results": []}
+    hits = [s for s in slugs() if w.split("-")[0] in s][:8]
+    return {"results": [{"name": s.replace("-", " ").title(), "slug": s} for s in hits]}
 
 
 @app.get("/ipo")
 def ipo(name: str):
     slug = resolve(name)
     if not slug:
-        return {"found": False, "error": f"No IPO matching '{name}' found on IPOTrack."}
-    hit = _cache.get(slug)
-    if hit and time.time() - hit["at"] < 1200:
-        return hit["data"]
-    agents = []
+        return {"found": False,
+                "error": f"No IPO matching '{name}' found on IPOTrack."}
+    now = time.time()
+    c = _ipo_cache.get(slug)
+    if c and now - c["at"] < IPO_TTL:
+        return c["data"]
+    agents = {}
+    scout_url = f"https://ipotrack.in/ipo/{slug}/"
+
+    def scout():
+        return parse_scout(fetch(scout_url), slug)
+
     with ThreadPoolExecutor(max_workers=3) as ex:
-        t0 = time.time()
-        f_scout = ex.submit(fetch, f"https://ipotrack.in/ipo/{slug}")
-        f_check = ex.submit(fetch, f"https://ipowatch.in/{slug}-ipo-subscription-status/")
-        f_sent = ex.submit(run_sentiment, name)
+        f_scout = ex.submit(scout)
         try:
-            try:
-                scout_html = f_scout.result()
-            except Exception:
-                scout_html = fetch(f"https://ipotrack.in/ipo/{slug}")
-            data = parse_scout(scout_html, slug)
-            agents.append({"agent": "Data Scout", "status": "ok", "detail": "IPOTrack live page read"})
-        except Exception as e:
-            return {"found": False, "error": f"Data Scout failed: {e}"}
-        cross = []
-        try:
-            cross = run_checker(f_check.result(), data)
-            data["sources"] = {"primary": data["source"],
-                                "cross_check": f"https://ipowatch.in/{slug}-ipo-subscription-status/"}
-            agents.append({"agent": "Cross-Checker", "status": "ok",
-                           "detail": f"IPOWatch verified {len(cross)} figures"})
+            data = f_scout.result(timeout=40)
+            agents["data_scout"] = "ok"
         except Exception:
-            data["sources"] = {"primary": data["source"]}
-            agents.append({"agent": "Cross-Checker", "status": "unavailable",
-                           "detail": "IPOWatch unreachable this time"})
+            return {"found": False,
+                    "error": "Primary source (IPOTrack) unreachable right now — "
+                             "try again in a few seconds."}
+        f_sent = ex.submit(run_sentiment, data["name"])
+        f_check = ex.submit(run_checker, data["name"], data)
         try:
-            data["sentiment"] = f_sent.result()
-            agents.append({"agent": "Sentiment Agent", "status": "ok",
-                           "detail": f"{data['sentiment']['analysed']} news headlines analysed — mood: {data['sentiment']['label']}"})
+            notes, filled = f_check.result(timeout=40)
+            data.update(filled)
+            agents["cross_checker"] = "ok"
         except Exception:
-            data["sentiment"] = None
-            agents.append({"agent": "Sentiment Agent", "status": "unavailable", "detail": "News feed unreachable this time"})
-    elapsed = round(time.time() - t0, 2)
-    for a in agents:
-        a["total_s"] = elapsed
-    core = [data.get(k) for k in ("price", "size_cr", "total", "qib", "gmp_pct")]
+            notes, agents["cross_checker"] = [], "failed"
+        try:
+            senti = f_sent.result(timeout=20)
+            agents["sentiment"] = "ok" if senti.get("ok") else "failed"
+        except Exception:
+            senti, agents["sentiment"] = {"ok": False, "headlines": []}, "failed"
+
+    core = [data.get(k) for k in ("price", "total", "qib", "gmp_pct")]
     have = sum(1 for v in core if v is not None)
-    warns = sum(1 for c in cross if c.startswith("WARNING"))
-    data["confidence"] = "high" if have >= 4 and warns == 0 else ("medium" if have >= 3 else "low")
-    data["cross_check"] = cross
-    data["agents"] = agents
-    data["found"] = True
-    data["fetched_at"] = datetime.now(IST).strftime("%d %b %Y, %I:%M %p IST")
-    _cache[slug] = {"data": data, "at": time.time()}
-    return data
+    warn = any("disagree" in n for n in notes)
+    conf = "high" if have >= 4 and not warn else "medium" if have >= 3 else "low"
+    out = {"found": True, **data, "cross_check": notes,
+           "sources": [scout_url, "https://ipowatch.in"],
+           "confidence": conf, "agents": agents, "sentiment": senti,
+           "fetched_at": datetime.now(IST).isoformat(timespec="seconds")}
+    _ipo_cache[slug] = {"at": now, "data": out}
+    return out
