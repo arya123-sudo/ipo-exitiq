@@ -30,12 +30,23 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 <label>Issue size (₹ crore)</label><input id="size" type="number" step="any" value="255">
 <label>Issue price (₹)</label><input id="price" type="number" step="any" value="150">
 <label>Lot size (shares)</label><input id="lot" type="number" step="any" value="100">
+<label>QIB subscription (x) — big institutions & mutual funds. The most trusted signal: they do deep research before putting crores in.</label><input id="qib" type="number" step="any" value="12.2">
+<label>NII / HNI subscription (x) — rich individual investors</label><input id="nii" type="number" step="any" value="78.75">
+<label>Retail subscription (x) — small investors like us</label><input id="retail" type="number" step="any" value="29.77">
+<label>OFS % of the issue — share of the IPO where existing owners are selling THEIR shares (money goes to them, not the company). 0% = fully fresh issue.</label><input id="ofs" type="number" step="any" value="0">
+<label>Price vs similar listed companies (valuation)</label><select id="pe"><option value="cheap">Cheaper than peers</option><option value="fair" selected>About fair</option><option value="costly">Much costlier than peers</option></select>
 <label>GMP % (optional) — Grey Market Premium: the unofficial extra price buyers pay before listing. 34% GMP roughly hints at a ~34% listing gain.</label><input id="gmp" type="number" step="any" value="34">
 <label>GMP trend in the last 3 days</label><select id="gmp_trend"><option value="up" selected>Rising ↗</option><option value="flat">Steady →</option><option value="down">Falling ↘</option></select>
 <button onclick="predict()">Predict listing gain</button>
 <div id="out1" style="margin-top:14px"></div>
 </div>
 
+<div class="card"><b>💡 GMP is low — what should you do?</b>
+<div class="reasons" style="margin-top:6px">GMP is unofficial and can be pushed up or down by operators — never decide on GMP alone. Use this 2-check rule:<br>
+• <b>GMP low + QIB strong (10x+):</b> institutions see value the grey market is missing. This can be a quiet good apply — check valuation and decide.<br>
+• <b>GMP low + QIB weak (below 2x):</b> both signals agree there is no demand. <b>Skip it</b> — this is where most listing losses happen.<br>
+• <b>GMP high + QIB weak:</b> hype trap. Retail excitement without institutional money often lists okay and falls fast, or falls on day 1 itself.<br>
+• <b>GMP high + QIB strong:</b> the classic strong IPO (like BLS) — apply, and plan your exit with the Sell tab.</div></div>
 <div class="card hide" id="tab2">
 <div class="small" style="margin-bottom:6px">The numbers below are an <b>example</b> (what BLS might look like at ₹195) — on listing day, type the live prices here.</div><label>Issue price (₹)</label><input id="s_issue" type="number" step="any" value="150">
 <label>Current price (₹)</label><input id="s_cur" type="number" step="any" value="195">
@@ -74,11 +85,34 @@ function predict(){
  if(prob>=0.65&&gain>8){verdict='\u2705 APPLY \u2014 strong listing setup';cls='green';}
  else if(prob>=0.5){verdict='🟡 MAY APPLY \u2014 modest / uncertain';cls='yellow';}
  else {verdict='🔴 SKIP \u2014 weak setup, listing-loss risk';cls='red';}
+ const qib=parseFloat(document.getElementById('qib').value), nii=parseFloat(document.getElementById('nii').value), ret=parseFloat(document.getElementById('retail').value), ofs=parseFloat(document.getElementById('ofs').value), pe=document.getElementById('pe').value;
+ const pros=[], risks=[];
+ if(!Number.isNaN(qib)){ if(qib>=10)pros.push(`Institutions are putting serious money: QIB subscribed ${qib}x \u2014 mutual funds and big investors researched this company deeply before bidding.`); else if(qib>=3)pros.push(`Decent institutional interest: QIB ${qib}x.`); else if(qib<1)risks.push(`Institutions are NOT interested: QIB only ${qib}x \u2014 the smart money is staying away. This is the single biggest loss warning.`); else if(qib<2)risks.push(`Weak institutional demand: QIB just ${qib}x (below 2x is a poor-quality signal in every IPO guide).`); }
+ if(!Number.isNaN(nii)&&nii>=20)pros.push(`Rich investors (HNI) bid heavily: ${nii}x.`);
+ if(sub>=20)pros.push(`Overall demand is very strong: ${sub}x total subscription.`);
+ if(!Number.isNaN(ret)&&!Number.isNaN(qib)&&ret>40&&qib<3)risks.push(`Retail frenzy (${ret}x) without institutions (QIB ${qib}x) \u2014 this pattern is usually hype, not quality.`);
+ if(!Number.isNaN(g)&&g>=20)pros.push(`Grey market is paying +${g}% over the issue price before listing.`);
+ if(!Number.isNaN(g)&&g<0)risks.push(`GMP is negative (${g}%) \u2014 grey market expects a below-issue-price listing.`);
+ if(trend==='up')pros.push('GMP has been rising for 3 days \u2014 momentum building into listing.');
+ if(trend==='down')risks.push('GMP is falling day by day \u2014 grey-market buyers are backing off before listing.');
+ if(!Number.isNaN(ofs)){ if(ofs<=25)pros.push(`Only ${ofs}% is OFS \u2014 most of the money goes INTO the company for growth, not into sellers' pockets.`); else if(ofs>50)risks.push(`${ofs}% of this IPO is OFS \u2014 existing owners are mostly cashing out and the company gets little new money. Ask why insiders are exiting.`); }
+ if(pe==='cheap')pros.push('Priced cheaper than similar listed companies \u2014 room to rise toward peer levels.');
+ if(pe==='costly')risks.push('Priced much costlier than similar listed companies \u2014 little room to rise, more room to fall after listing.');
+ const lo=Math.max(-60,gain-15), hi=gain+15;
+ let decision = (prob>=0.6&&risks.length<=1)?'\u2705 APPLY':(prob>=0.45&&risks.length<=3)?'\uD83D\uDFE1 APPLY, BUT KNOW THE RISKS':'\uD83D\uDD34 AVOID / SKIP THIS ONE';
+ if(decision.includes('AVOID')&&!Number.isNaN(qib)&&qib>=10&&risks.length<=1){decision='\uD83D\uDFE1 APPLY, BUT KNOW THE RISKS \u2014 the model is cautious, but institutions (QIB '+qib+'x) disagree with it';}
+ const report=`<div style="margin-top:14px;border-top:1px solid #33475e;padding-top:10px"><div class="verdict">${decision}</div>
+ <b>How much can it go?</b> <span class="reasons">Model expects listing around <b>\u20B9${(priceV*(1+gain/100)).toFixed(0)}</b> (range \u20B9${(priceV*(1+lo/100)).toFixed(0)}\u2013\u20B9${(priceV*(1+hi/100)).toFixed(0)} using our historical \u00B115% error band)${!Number.isNaN(g)?`, GMP points to \u2248\u20B9${(priceV*(1+g/100)).toFixed(0)}`:''}.</span>
+ ${pros.length?`<div style="margin-top:8px"><b class="green">Why it can rise \u2014 strong reasons</b><ul class="reasons">${pros.map(r=>`<li>${r}</li>`).join('')}</ul></div>`:''}
+ ${risks.length?`<div style="margin-top:4px"><b class="red">Why you could lose money \u2014 read carefully</b><ul class="reasons">${risks.map(r=>`<li>${r}</li>`).join('')}</ul></div>`:'<div class="reasons" style="margin-top:4px">No major loss warning from the numbers you entered.</div>'}
+ </div>`;
+ /* report appended after main output below */
  document.getElementById('out1').innerHTML=`<div class="big ${gain>=0?'green':'red'}">${gain>=0?'+':''}${gain.toFixed(1)}% <span style="font-size:15px;color:#9fb3c8">predicted listing gain</span></div>
  <div class="verdict ${cls}">${verdict}</div>
  <div class="reasons">Profit probability: <b>${(prob*100).toFixed(0)}%</b> \u00B7 Expected listing value \u2248 <b>\u20B9${(priceV*(1+gain/100)).toFixed(0)}/share</b> (${perLot>=0?'+':''}\u20B9${perLot.toFixed(0)} per lot)
  ${!Number.isNaN(g)?`<br>GMP rule estimate: <b>${g>=0?'+':''}${g}%</b> \u2014 historically our most accurate single signal, compare both.`:''}
  ${trendNote}<br>How to read two different numbers: the true listing usually lands <b>between the model and GMP estimates</b> \u2014 when both point the same way (like BLS), trust the direction.<br>Biggest driver the model learned: <b>total subscription</b> (33% of all importance), then issue size and broker recommendations.</div>`;
+ document.getElementById('out1').innerHTML += report;
 }
 function sellSignal(){
  const issue=parseFloat(document.getElementById('s_issue').value), cur=parseFloat(document.getElementById('s_cur').value), peak=parseFloat(document.getElementById('s_peak').value), day=parseFloat(document.getElementById('s_day').value)||0;
