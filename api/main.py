@@ -72,10 +72,15 @@ def resolve(name: str):
     for s in pool:
         st = set(s.split("-"))
         j = len(wt & st) / max(1, len(wt | st))
-        sc = max(j, SequenceMatcher(None, want, s).ratio())
+        r = SequenceMatcher(None, want, s).ratio()
+        sc = max(j, r)
+        # Accept on real evidence only: shared name tokens, or a very close string.
+        # ('bombay' must resolve to Bombay Coated, and must NEVER resolve to 'boat'.)
+        if not ((j > 0 and (sc >= 0.40 or j >= 0.25)) or r >= 0.75):
+            continue
         if sc > score:
             best, score = s, sc
-    return best if score >= 0.45 else None
+    return best
 
 
 def num(pat, t, cast=float):
@@ -209,7 +214,11 @@ def ipo(name: str):
         f_check = ex.submit(fetch, f"https://ipowatch.in/{slug}-ipo-subscription-status/")
         f_sent = ex.submit(run_sentiment, name)
         try:
-            data = parse_scout(f_scout.result(), slug)
+            try:
+                scout_html = f_scout.result()
+            except Exception:
+                scout_html = fetch(f"https://ipotrack.in/ipo/{slug}")
+            data = parse_scout(scout_html, slug)
             agents.append({"agent": "Data Scout", "status": "ok", "detail": "IPOTrack live page read"})
         except Exception as e:
             return {"found": False, "error": f"Data Scout failed: {e}"}
