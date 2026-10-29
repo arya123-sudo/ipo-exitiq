@@ -8,6 +8,7 @@ publicly displayed figures with attribution and a fetch timestamp.
 """
 import re
 import time
+from datetime import datetime, timedelta, timezone
 import urllib.request
 from difflib import SequenceMatcher
 
@@ -182,6 +183,6 @@ def ipo(name: str):
     data["cross_check"] = cross
     data["sources"] = sources
     data["found"] = True
-    data["fetched_at"] = time.strftime("%d %b %Y, %I:%M %p IST", time.localtime())
+    data["fetched_at"] = datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p IST")
     _cache[slug] = {"data": data, "at": time.time()}
     return data
