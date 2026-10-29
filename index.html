@@ -168,4 +168,27 @@ function scenarios(issue,cur,shares){
 }
 function showTab(n){document.getElementById('tab1').classList.toggle('hide',n!==1);document.getElementById('tab2').classList.toggle('hide',n!==2);document.getElementById('t1').classList.toggle('on',n===1);document.getElementById('t2').classList.toggle('on',n===2);}
 predict();
+
+let IPOS_LIST=[], IPOS_UPDATED='';
+const FALLBACK_IPOS = {"ipos":[{"gmp_pct":34,"gmp_trend":"up","lot":100,"name":"BLS Polymers","nii":78.75,"ofs_pct":0,"pe":"fair","price":150,"qib":12.2,"retail":29.77,"size_cr":255,"status":"Closed 29 Oct · Allotment 30 Oct · Listing 3 Nov","total":35.25},{"gmp_pct":2,"gmp_trend":"flat","lot":null,"name":"EAAA India Alternatives","nii":4.81,"ofs_pct":100,"pe":"fair","price":1665,"qib":13.8,"retail":1.08,"size_cr":1200,"status":"Closed 28 Oct · Listing 2 Nov","total":5.51},{"gmp_pct":11,"gmp_trend":"up","lot":182,"name":"Bombay Coated & Special Steels","nii":0.59,"ofs_pct":0,"pe":"fair","price":82,"qib":6.89,"retail":1.1,"size_cr":183.06,"status":"OPEN till 2 Nov (Day-1 figures) · Listing 5 Nov","total":2.67},{"gmp_pct":9.3,"gmp_trend":"up","lot":91,"name":"M.K.Sons Fine Jewels","nii":null,"ofs_pct":20,"pe":"fair","price":162,"qib":0.96,"retail":0.23,"size_cr":275.4,"status":"Open · not fully subscribed yet","total":0.65}],"note":"Subscription/GMP move daily for open IPOs. Figures: exchanges/Chittorgarh/IPOTrack/IPOWatch as of the updated time. Ask Muse in chat to refresh or add any IPO.","updated":"29 Oct 2026, evening (IST)"};
+function fillList(d){
+ const dl=document.getElementById('ipolist'); dl.innerHTML='';
+ d.ipos.forEach(p=>{const o=document.createElement('option');o.value=p.name;dl.appendChild(o);});
+ document.getElementById('iponote').textContent='IPO data updated: '+d.updated+'. '+d.note;
+ IPOS_LIST=d.ipos;
+}
+function pickIPO(){
+ const name=document.getElementById('iponame').value.trim().toLowerCase();
+ const p=(IPOS_LIST||[]).find(x=>x.name.toLowerCase()===name);
+ if(!p)return;
+ const set=(id,v)=>{if(v!==null&&v!==undefined)document.getElementById(id).value=v;};
+ set('price',p.price); set('size',p.size_cr); set('lot',p.lot); set('sub_x',p.total);
+ set('qib',p.qib); set('nii',p.nii); set('retail',p.retail); set('ofs',p.ofs_pct);
+ set('gmp',p.gmp_pct); set('gmp_trend',p.gmp_trend); set('pe',p.pe);
+ document.getElementById('iponote').textContent=p.name+' — '+p.status+'. Numbers filled from live data ('+(IPOS_UPDATED||'')+'). Press Predict, or it is already done below.';
+ predict();
+}
+document.getElementById('iponame').addEventListener('change',pickIPO);
+try{ fetch('ipos.json').then(r=>r.json()).then(d=>{IPOS_UPDATED=d.updated;fillList(d);}).catch(()=>{IPOS_UPDATED=FALLBACK_IPOS.updated;fillList(FALLBACK_IPOS);}); }
+catch(e){ IPOS_UPDATED=FALLBACK_IPOS.updated; fillList(FALLBACK_IPOS); }
 </script></body></html>
