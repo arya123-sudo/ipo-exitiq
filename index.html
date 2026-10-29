@@ -289,7 +289,7 @@ document.getElementById('hero_name').addEventListener('input',e=>{
 
 const API_BASE = 'https://ipo-exitiq-api.onrender.com';
 function fetchIPO(name, attempt){
- const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),10000);
+ const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),attempt?40000:12000);
  return fetch(API_BASE+'/ipo?name='+encodeURIComponent(name),{signal:ctl.signal})
   .then(r=>{clearTimeout(to);return r.json();})
   .catch(e=>{clearTimeout(to); if(!attempt&&!window.__quickShown){return new Promise(res=>setTimeout(res,1500)).then(()=>fetchIPO(name,1));} throw e;});
@@ -352,7 +352,7 @@ function pickIPO(passed){
 }
 document.getElementById('iponame').addEventListener('change',pickIPO);
 try{ fetch(API_BASE+'/').catch(()=>{}); }catch(e){}
-setTimeout(()=>{ (IPOS_LIST||[]).slice(0,6).forEach((p,i)=>{ setTimeout(()=>{ fetchIPO(p.name).then(d=>{ if(d&&d.found){ d.__note=''; MEMO[p.name.toLowerCase()]=d; } }).catch(()=>{}); }, i*4000); }); }, 6000);
+/* background prefetch removed: on the free server it competed with the user's own tap. Fetch-on-type still warms the name being typed. */
 try{ fetch('ipos.json').then(r=>r.json()).then(d=>{IPOS_UPDATED=d.updated;fillList(d);}).catch(()=>{IPOS_UPDATED=FALLBACK_IPOS.updated;fillList(FALLBACK_IPOS);}); }
 catch(e){ IPOS_UPDATED=FALLBACK_IPOS.updated; fillList(FALLBACK_IPOS); }
 </script></body></html>
