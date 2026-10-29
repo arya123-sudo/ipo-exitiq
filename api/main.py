@@ -177,9 +177,9 @@ def parse_scout(html: str, slug: str) -> dict:
     return d
 
 
-def run_checker(name: str, data: dict):
-    """Cross-check against IPOWatch: fill gaps; flag big disagreements."""
-    notes, filled = [], {}
+def fetch_checker(name: str):
+    """Fetch IPOWatch's numbers for this IPO. Runs in parallel with the Scout;
+    the comparison happens later, once the Scout's data is in."""
     try:
         q = urllib.parse.quote(name)
         srch = fetch(f"https://ipowatch.in/?s={q}")
@@ -192,25 +192,32 @@ def run_checker(name: str, data: dict):
                 break
         if page is None and links:
             page = fetch(links[0])
-        if page:
-            t = text_of(page)
-            cand = {"total": num(r"(?:subscribed|subscription)[^\d]{0,40}?(\d+(?:\.\d+)?)\s*(?:x|times)", t),
-                    "qib": num(r"qib[^\d]{0,30}?(\d+(?:\.\d+)?)\s*(?:x|times)", t),
-                    "retail": num(r"retail[^\d]{0,30}?(\d+(?:\.\d+)?)\s*(?:x|times)", t),
-                    "nii": num(r"(?:nii|non[-\s]?institutional)[^\d]{0,30}?(\d+(?:\.\d+)?)\s*(?:x|times)", t)}
-            for k, v in cand.items():
-                if v is None:
-                    continue
-                if data.get(k) is None:
-                    filled[k] = v
-                elif data[k] and abs(v - data[k]) / max(data[k], 0.01) > 0.25 \
-                        and abs(v - data[k]) > 0.3:
-                    notes.append(f"{k}: sources disagree — IPOTrack {data[k]}x vs "
-                                 f"IPOWatch {v}x (showing IPOTrack)")
-            if filled:
-                notes.append("Some fields filled from IPOWatch (not on IPOTrack page)")
+        if not page:
+            return None
+        t = text_of(page)
+        return {"total": num(r"(?:subscribed|subscription)[^\d]{0,40}?(\d+(?:\.\d+)?)\s*(?:x|times)", t),
+                "qib": num(r"qib[^\d]{0,30}?(\d+(?:\.\d+)?)\s*(?:x|times)", t),
+                "retail": num(r"retail[^\d]{0,30}?(\d+(?:\.\d+)?)\s*(?:x|times)", t),
+                "nii": num(r"(?:nii|non[-\s]?institutional)[^\d]{0,30}?(\d+(?:\.\d+)?)\s*(?:x|times)", t)}
     except Exception:
-        notes.append("Cross-check source unreachable this time")
+        return None
+
+
+def compare_checker(cand, data: dict):
+    notes, filled = [], {}
+    if cand is None:
+        return ["Cross-check source unreachable this time"], filled
+    for k, v in cand.items():
+        if v is None:
+            continue
+        if data.get(k) is None:
+            filled[k] = v
+        elif data[k] and abs(v - data[k]) / max(data[k], 0.01) > 0.25 \
+                and abs(v - data[k]) > 0.3:
+            notes.append(f"{k}: sources disagree — IPOTrack {data[k]}x vs "
+                         f"IPOWatch {v}x (showing IPOTrack)")
+    if filled:
+        notes.append("Some fields filled from IPOWatch (not on IPOTrack page)")
     return notes, filled
 
 
@@ -283,8 +290,11 @@ def ipo(name: str):
     def scout():
         return parse_scout(fetch(scout_url), slug)
 
+    display = slug.replace("-", " ").title()
     with ThreadPoolExecutor(max_workers=3) as ex:
         f_scout = ex.submit(scout)
+        f_sent = ex.submit(run_sentiment, display)
+        f_check = ex.submit(fetch_checker, display)
         try:
             data = f_scout.result(timeout=40)
             agents["data_scout"] = "ok"
@@ -292,10 +302,9 @@ def ipo(name: str):
             return {"found": False,
                     "error": "Primary source (IPOTrack) unreachable right now — "
                              "try again in a few seconds."}
-        f_sent = ex.submit(run_sentiment, data["name"])
-        f_check = ex.submit(run_checker, data["name"], data)
         try:
-            notes, filled = f_check.result(timeout=8)
+            cand = f_check.result(timeout=8)
+            notes, filled = compare_checker(cand, data)
             data.update(filled)
             agents["cross_checker"] = "ok"
         except Exception:
