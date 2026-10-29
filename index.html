@@ -16,6 +16,7 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 .reasons{font-size:13.5px;line-height:1.55;color:#c7d5e2}.reasons li{margin:5px 0}
 .small{font-size:12px;color:#7e93a8;line-height:1.5}
 .hide{display:none}
+.flash{animation:flashbg 1.4s ease}@keyframes flashbg{0%{background:rgba(46,204,143,.28)}100%{background:transparent}}
 </style></head><body>
 <h1>📈 IPO ExitIQ</h1>
 <div class="sub">AI trained on 418 real Indian IPOs. It answers two questions: <b>Should you apply?</b> and <b>Should you sell or hold?</b> It gives chances + reasons, never a guarantee.</div>
@@ -50,7 +51,7 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 <label>Price vs similar listed companies (valuation)</label><select id="pe"><option value="cheap">Cheaper than peers</option><option value="fair" selected>About fair</option><option value="costly">Much costlier than peers</option></select>
 <label>GMP % (optional) — Grey Market Premium: the unofficial extra price buyers pay before listing. 34% GMP roughly hints at a ~34% listing gain.</label><input id="gmp" type="number" step="any" value="29.33">
 <label>GMP trend in the last 3 days</label><select id="gmp_trend"><option value="up" selected>Rising ↗</option><option value="flat">Steady →</option><option value="down">Falling ↘</option></select>
-<button onclick="predict()">Predict listing gain</button>
+<button onclick="predict(1)">Predict listing gain</button>
 <div class="small" style="margin-top:6px">Which inputs matter: the AI model runs on total subscription, issue size, price and market mood. The QIB / NII / retail split and OFS drive the risk flags and the final verdict.</div>
 <div id="out1" style="margin-top:14px"></div>
 </div>
@@ -111,7 +112,7 @@ const REG=[{"nodeid": 0, "depth": 0, "split": "log_subscription", "split_conditi
 const REG_BASE=17.54468, CLF_BASE=0.6481481;
 function trav(node,row){while(node.leaf===undefined){const v=row[node.split];const nxt=(v===undefined||v===null||Number.isNaN(v))?node.missing:(v<node.split_condition?node.yes:node.no);node=node.children.find(c=>c.nodeid===nxt);}return node.leaf;}
 function xgb(trees,row,base){return base+trees.reduce((s,t)=>s+trav(t,row),0);}
-function predict(){
+function predict(manual){
  const sub=parseFloat(document.getElementById('sub_x').value)||0, sizeV=parseFloat(document.getElementById('size').value)||0, priceV=parseFloat(document.getElementById('price').value)||0, lotV=parseFloat(document.getElementById('lot').value)||30;
  const row={log_issue_size:Math.log1p(sizeV),log_issue_price:Math.log1p(priceV),log_subscription:Math.log1p(sub),lot_size:lotV,nifty_chg_pct:0,vix:14,brokers_subscribe:5,brokers_avoid:1,prev_quarter_success_close:1,year:2026};
  const gain=xgb(REG,row,REG_BASE); const prob=1/(1+Math.exp(-xgb(CLF,row,CLF_BASE)));
@@ -163,6 +164,9 @@ function predict(){
  <div class="reasons">Profit probability: <b>${(prob*100).toFixed(0)}%</b> \u00B7 Expected listing value \u2248 <b>\u20B9${(priceV*(1+gainH/100)).toFixed(0)}/share</b> (${perLotH>=0?'+':''}\u20B9${perLotH.toFixed(0)} per lot)
  ${trendNote}<br>Why the headline is the ${src}: on 2022\u201323 IPOs the model had never seen, the GMP rule's average error was <b>11.3%</b> and the model's <b>15.0%</b> \u2014 so GMP headlines when it exists, and the model does the probability + risk work. Full benchmark + scorecard below.<br>Biggest driver the model learned: <b>total subscription</b> (33% of all importance), then issue size and broker recommendations.</div>`;
  document.getElementById('out1').innerHTML += report;
+ if(manual){ const o=document.getElementById('out1'); const t=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+   o.innerHTML='<div class="reasons" style="color:#7ee2a8;font-weight:600">\u21BB Calculated just now \u00B7 '+t+' \u2014 the result below is fresh from the numbers currently in the form.</div>'+o.innerHTML;
+   o.scrollIntoView({behavior:'smooth',block:'center'}); o.classList.remove('flash'); void o.offsetWidth; o.classList.add('flash'); }
 }
 function sellSignal(){
  const issue=parseFloat(document.getElementById('s_issue').value), cur=parseFloat(document.getElementById('s_cur').value), peak=parseFloat(document.getElementById('s_peak').value), day=parseFloat(document.getElementById('s_day').value)||0;
