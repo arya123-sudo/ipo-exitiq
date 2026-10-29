@@ -220,7 +220,7 @@ document.getElementById('hero_name').addEventListener('keydown',e=>{if(e.key==='
 
 const API_BASE = 'https://ipo-exitiq-api.onrender.com';
 function fetchIPO(name, attempt){
- const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),45000);
+ const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),25000);
  return fetch(API_BASE+'/ipo?name='+encodeURIComponent(name),{signal:ctl.signal})
   .then(r=>{clearTimeout(to);return r.json();})
   .catch(e=>{clearTimeout(to); if(!attempt){return new Promise(res=>setTimeout(res,2000)).then(()=>fetchIPO(name,1));} throw e;});
