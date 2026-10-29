@@ -23,7 +23,7 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 
 <div class="card" style="border:2px solid #2f81f7">
 <div style="font-size:19px"><b>🔍 One-Tap IPO Check</b></div>
-<div class="small" style="margin:4px 0 8px">Type ANY IPO name → the app fetches its live numbers, analyses everything, and gives one clear answer: apply or not, and why. Nothing else to fill.</div>
+<div class="small" style="margin:4px 0 8px">Type ANY IPO name → one tap fetches its live, cross-checked numbers and gives one clear answer: apply or not, and why. If the live fetch ever fails, you get the saved-data result instead — or fill the detailed form below yourself.</div>
 <input id="hero_name" list="herolist" placeholder="Type IPO name — e.g. BLS Polymers" autocomplete="off" style="font-size:17px;padding:12px">
 <datalist id="herolist"></datalist>
 <button onclick="heroAnalyse()" style="width:100%;font-size:18px;padding:13px;margin-top:8px">Analyse IPO → Apply or Not?</button>
@@ -59,7 +59,7 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 • <b>GMP high + QIB weak:</b> hype trap. Retail excitement without institutional money often lists okay and falls fast, or falls on day 1 itself.<br>
 • <b>GMP high + QIB strong:</b> the classic strong IPO (like BLS) — apply, and plan your exit with the Sell tab.</div></div>
 <div class="card hide" id="tab2">
-<div class="small" style="margin-bottom:6px">The numbers below are an <b>example</b> (what BLS might look like at ₹195) — on listing day, type the live prices here. Note: some listings hit price circuits (5% / 10% / 20% bands) — at a locked circuit you cannot sell until it opens again, which is one more reason the stop-loss is set early.</div><label>Issue price (₹)</label><input id="s_issue" type="number" step="any" value="150">
+<div class="small" style="margin-bottom:6px">The numbers below are an <b>example</b> (what BLS might look like at ₹195) — on listing day, type the live prices here. Note: some listings hit price circuits (5% / 10% / 20% bands) — at a locked circuit you cannot sell until it opens again, which is one more reason the stop-loss is set early.<br><b>Honest status:</b> this sell/hold signal is <b>rule-based (expert weights), not yet backtested</b>. The scenario table and Time Machine below DO use real historical distributions; a Regret Backtester to validate the signal itself is on the roadmap.</div><label>Issue price (₹)</label><input id="s_issue" type="number" step="any" value="150">
 <label>Current price (₹)</label><input id="s_cur" type="number" step="any" value="195">
 <label>Highest price since listing (₹)</label><input id="s_peak" type="number" step="any" value="201">
 <label>Today's change (%)</label><input id="s_day" type="number" step="any" value="1.5">
@@ -78,23 +78,27 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 <div class="card"><b>📊 Public scorecard — every prediction timestamped BEFORE listing (misses published too)</b>
 <table style="width:100%;font-size:13.5px;border-collapse:collapse;margin-top:8px">
 <tr style="color:#9fb3c8;text-align:left"><td>IPO</td><td>Predicted (when)</td><td>Actual listing</td><td>Verdict</td></tr>
-<tr><td>Jio Platforms</td><td>+24.8% (model replay, built after listing)</td><td>+26.7% close (+21.4% at the builder's sale)</td><td>✅ direction right</td></tr>
 <tr><td>BLS Polymers</td><td>Headline +29% (GMP) · model +17% — 29 Oct</td><td>Lists 3 Nov — pending</td><td>—</td></tr>
 <tr><td>EAAA India Alternatives</td><td>Headline +1.8% (GMP) · model +2.1% — 29 Oct</td><td>Lists 2 Nov — pending</td><td>—</td></tr>
 <tr><td>M.K.Sons Fine Jewels</td><td>Headline +9.3% (GMP) · model +1.8% — 29 Oct</td><td>Lists 4 Nov — pending</td><td>—</td></tr>
 <tr><td>Bombay Coated &amp; Special Steels</td><td>Headline +11.0% (GMP) · model −2.1% — 29 Oct, subscription still open</td><td>Lists 5 Nov — pending</td><td>—</td></tr>
 <!--SCORECARD_ROWS-->
 </table>
-<div class="reasons" style="margin-top:6px">How to read this: a prediction only counts if it was written here before the listing bell. After each listing, the actual number is filled in — win or lose.</div></div>
+<div class="reasons" style="margin-top:6px"><b>Live predictions resolved: 0 of 4 · hits 0 · misses 0.</b> A <b>miss</b> is defined in advance: the actual listing-day closing gain has the opposite sign to the headline estimate, OR is more than 15 points away from it. No redefining later.<br>
+Worked example (NOT counted): Jio Platforms — model replay built after listing: +24.8% vs actual close +26.7%.<br>
+Timestamps are verifiable, not just claimed: these predictions also live in <b>predictions.json</b> in the GitHub repo — the git commit date is the timestamp, and it cannot be backdated.</div></div>
 <div class="card"><b>🔬 How accurate is it, honestly? (the benchmark)</b>
 <div class="reasons" style="margin-top:6px">Method: the model was trained ONLY on 2009–2021 IPOs and tested on 2022–23 IPOs it had never seen (a <b>time split</b> — random splits leak market regimes and flatter the score, so we don't use them). Dataset: 418 real mainline IPOs.<br><br>
 <table style="width:100%;font-size:13.5px;border-collapse:collapse">
 <tr style="color:#9fb3c8;text-align:left"><td>Estimator</td><td>Test set</td><td>Avg error (MAE)</td><td>Direction</td></tr>
 <tr><td>Naive guess (always the median)</td><td>94 IPOs, 2022–23</td><td>22.1%</td><td>—</td></tr>
-<tr><td>AI model (XGBoost)</td><td>94 IPOs, 2022–23</td><td>15.4%</td><td>73% right</td></tr>
+<tr><td>AI model (XGBoost, the one deployed here)</td><td>94 IPOs, 2022–23</td><td>15.4%</td><td>73% right</td></tr>
+<tr><td>Always predict UP (naive baseline)</td><td>94 IPOs, 2022–23</td><td>—</td><td>74.5% right</td></tr>
 <tr><td>GMP rule (gain ≈ GMP%)</td><td>72 of them with GMP data</td><td><b>11.3%</b></td><td>71% right</td></tr>
 <tr><td>AI model on those same 72</td><td>72 IPOs</td><td>15.0%</td><td>65% right</td></tr>
+<tr><td>Always predict UP on those 72</td><td>72 IPOs</td><td>—</td><td>75% right</td></tr>
 </table><br>
+<b>Read the direction numbers carefully:</b> in 2022–23 about 3 of 4 IPOs rose, so \u201Calways say up\u201D scores 74.5% — the model does <b>not</b> beat that on direction alone in this window. Its measurable edge is <b>gain sizing</b> (error 15.4% vs 22.1% for the naive median) and <b>ranking risk</b> (profit-probability AUC 0.764). The GMP-vs-model error gap (+3.8 points) survives a bootstrap check (95% CI +1.6 to +6.0), but the GMP subset is <b>biased</b>: GMP data exists for only ~112 of the 418 IPOs and skews toward hotter issues. And one more caveat: training data ends in 2023 while you are looking at 2026 IPOs — markets shift, so treat the live scorecard above, not these backtests, as the real evidence.<br><br>
 So the app is honest about its own design: <b>when GMP exists, it headlines</b> (it's the sharpest single number), and the AI model earns its place as the <b>confidence and risk layer</b> — profit probability, disagreement warnings, and the loss-risk flags. A model+GMP blend was also backtested and did <b>not</b> beat the GMP rule, so we don't use one. GMP itself is unofficial and can be operator-influenced — that's why every GMP here is cross-checked against subscription demand, and flagged when the two disagree.</div></div>
 <div class="small">In plain words: tested on IPOs the model had never seen, it pointed the right way (up or down) for about 73 out of 100, and its gain guess was off by ~15% on average. The simple GMP rule was slightly sharper (~11% off). Treat every number here as a strong hint, not a promise. This is a student-built decision helper, not SEBI-registered investment advice.</div>
 
@@ -136,12 +140,13 @@ function predict(){
  // When GMP is missing, the model headlines. Both numbers are always shown.
  const hasG=!Number.isNaN(g);
  const gainH=hasG?g:gain, src=hasG?'GMP rule':'AI model', errBand=hasG?11:15;
- if(hasG&&Math.abs(gain-g)>20)risks.push('Sharp disagreement: the AI model says '+(gain>=0?'+':'')+gain.toFixed(0)+'% but GMP says '+(g>=0?'+':'')+g+'%. When the two fight like this, trust the WIDE range, not either number.');
+ const conflictF=hasG&&(Math.abs(gain-g)>10||(gain>=0)!==(g>=0));
+ if(conflictF)risks.push('SIGNALS CONFLICT: the AI model says '+(gain>=0?'+':'')+gain.toFixed(0)+'% but GMP says '+(g>=0?'+':'')+g+'%. When the two disagree, confidence is LOW — trust the wide range, not either number, and weight the risk flags below heavily.');
  if(hasG&&g>=20&&sub<1)risks.push('GMP looks inconsistent: the grey market claims +'+g+'% but total subscription is only '+sub+'x. GMP can be operator-inflated — treat this one with suspicion.');
  const lo=Math.max(-60,gainH-errBand), hi=gainH+errBand;
  const perLotH=gainH/100*priceV*lotV;
  let decision = (prob>=0.6&&risks.length<=1)?'\u2705 APPLY':(prob>=0.45&&risks.length<=3)?'\uD83D\uDFE1 APPLY, BUT KNOW THE RISKS':'\uD83D\uDD34 AVOID / SKIP THIS ONE';
- LAST_RESULT={gain:gain,gainH:gainH,src:src,prob:prob,pros:pros,risks:risks,lo:lo,hi:hi,price:priceV};
+ LAST_RESULT={gain:gain,gainH:gainH,src:src,conflict:conflictF,prob:prob,pros:pros,risks:risks,lo:lo,hi:hi,price:priceV};
  if(decision.includes('AVOID')&&!Number.isNaN(qib)&&qib>=10&&risks.length<=1){decision='\uD83D\uDFE1 APPLY, BUT KNOW THE RISKS \u2014 the model is cautious, but institutions (QIB '+qib+'x) disagree with it';}
  LAST_RESULT.decision=decision;
  const report=`<div style="margin-top:14px;border-top:1px solid #33475e;padding-top:10px"><div class="verdict">${decision}</div>
@@ -231,7 +236,7 @@ function showTab(n){document.getElementById('tab1').classList.toggle('hide',n!==
 predict();
 
 let IPOS_LIST=[], IPOS_UPDATED='';
-const FALLBACK_IPOS = {"ipos":[{"gmp_pct":29.33,"gmp_trend":"up","lot":100,"name":"BLS Polymers","nii":78.75,"ofs_pct":0,"pe":"fair","price":150,"qib":12.2,"retail":29.77,"size_cr":255,"status":"Closed 29 Oct \u00b7 Allotment 30 Oct \u00b7 Listing 3 Nov","total":35.25},{"name":"EAAA India Alternatives","price":1665.0,"lot":9,"size_cr":null,"total":5.25,"qib":13.13,"nii":4.57,"retail":1.03,"gmp_pct":1.8,"gmp_trend":null,"ofs_pct":null,"pe":"fair","status":"Open Date: 26 Oct 2026 \u00b7 Close Date: 28 Oct 2026 \u00b7 Listing Date: 02 Nov 2026"},{"name":"Bombay Coated & Special Steels","price":82.0,"lot":182,"size_cr":183.06,"total":2.81,"qib":6.89,"nii":0.76,"retail":1.31,"gmp_pct":10.98,"gmp_trend":null,"ofs_pct":0.0,"pe":"fair","status":"Open \u00b7 Close Date: 02 Nov 2026 \u00b7 Listing Date: 05 Nov 2026"},{"name":"M.K.Sons Fine Jewels","price":162.0,"lot":91,"size_cr":275.4,"total":0.65,"qib":0.96,"nii":1.19,"retail":0.23,"gmp_pct":9.26,"gmp_trend":null,"ofs_pct":20.0,"pe":"fair","status":"Open \u00b7 Close Date: 30 Oct 2026 \u00b7 Listing Date: 04 Nov 2026"},{"name":"HGS India","price":120.0,"lot":1200,"size_cr":34.56,"total":null,"qib":null,"nii":null,"retail":null,"gmp_pct":null,"gmp_trend":null,"ofs_pct":19.2,"pe":"fair","status":"Open Date: 30 Oct 2026 \u00b7 Close Date: 03 Nov 2026 \u00b7 Listing Date: 06 Nov 2026"},{"name":"Paras Healthcare","price":693.0,"lot":21,"size_cr":null,"total":2.34,"qib":3.25,"nii":0.66,"retail":2.1,"gmp_pct":null,"gmp_trend":null,"ofs_pct":null,"pe":"fair","status":"Open Date: 21 Oct 2026 \u00b7 Close Date: 23 Oct 2026 \u00b7 Listing Date: 28 Oct 2026"},{"name":"Sahajanand Medical Technologies","price":344.0,"lot":43,"size_cr":475.48,"total":null,"qib":null,"nii":8.56,"retail":null,"gmp_pct":null,"gmp_trend":null,"ofs_pct":100.0,"pe":"fair","status":"Open Date: 15 Oct 2026 \u00b7 Close Date: 19 Oct 2026 \u00b7 Listing Date: 23 Oct 2026"},{"name":"Omara Ventures India","price":311.0,"lot":400,"size_cr":41.99,"total":null,"qib":null,"nii":1.63,"retail":null,"gmp_pct":null,"gmp_trend":null,"ofs_pct":0.0,"pe":"fair","status":"Close Date: 05 Oct 2026 \u00b7 Listing Date: 08 Oct 2026"},{"name":"Ravita Engineering Services","price":112.0,"lot":1200,"size_cr":116.05,"total":7.11,"qib":13.21,"nii":7.42,"retail":3.5,"gmp_pct":null,"gmp_trend":null,"ofs_pct":0.0,"pe":"fair","status":"Open Date: 14 Oct 2026 \u00b7 Close Date: 16 Oct 2026 \u00b7 Listing Date: 22 Oct 2026"},{"name":"Vaibhav Vyapaar","price":54.0,"lot":2000,"size_cr":42.1,"total":3.23,"qib":1.61,"nii":6.65,"retail":2.7,"gmp_pct":null,"gmp_trend":null,"ofs_pct":100.0,"pe":"fair","status":"Open Date: 13 Oct 2026 \u00b7 Close Date: 15 Oct 2026 \u00b7 Listing Date: 21 Oct 2026"}],"updated":"29 Oct 2026, night (IST)","note":"Library refreshed from the live ExitIQ API (IPOTrack + IPOWatch cross-checked). Open-IPO figures move daily \u2014 the app verifies live on every check anyway."};
+const FALLBACK_IPOS = {"ipos":[{"gmp_pct":29.33,"gmp_trend":"up","lot":100,"name":"BLS Polymers","nii":78.75,"ofs_pct":0,"pe":"fair","price":150,"qib":12.2,"retail":29.77,"size_cr":255,"status":"Closed 29 Oct \u00b7 Allotment 30 Oct \u00b7 Listing 3 Nov","total":35.25},{"name":"EAAA India Alternatives","price":1665.0,"lot":9,"size_cr":null,"total":5.25,"qib":13.13,"nii":4.57,"retail":1.03,"gmp_pct":1.8,"gmp_trend":null,"ofs_pct":null,"pe":"fair","status":"Open Date: 26 Oct 2026 \u00b7 Close Date: 28 Oct 2026 \u00b7 Listing Date: 02 Nov 2026"},{"name":"Bombay Coated & Special Steels","price":82.0,"lot":182,"size_cr":183.06,"total":2.81,"qib":6.89,"nii":0.76,"retail":1.31,"gmp_pct":10.98,"gmp_trend":null,"ofs_pct":0.0,"pe":"fair","status":"Open \u00b7 Close Date: 02 Nov 2026 \u00b7 Listing Date: 05 Nov 2026"},{"name":"M.K.Sons Fine Jewels","price":162.0,"lot":91,"size_cr":275.4,"total":0.65,"qib":0.96,"nii":1.19,"retail":0.23,"gmp_pct":9.26,"gmp_trend":null,"ofs_pct":20.0,"pe":"fair","status":"Open \u00b7 Close Date: 30 Oct 2026 \u00b7 Listing Date: 04 Nov 2026"},{"name":"HGS India","price":120.0,"lot":1200,"size_cr":34.56,"total":null,"qib":null,"nii":null,"retail":null,"gmp_pct":null,"gmp_trend":null,"ofs_pct":19.2,"pe":"fair","status":"Open Date: 30 Oct 2026 \u00b7 Close Date: 03 Nov 2026 \u00b7 Listing Date: 06 Nov 2026"},{"name":"Paras Healthcare","price":693.0,"lot":21,"size_cr":null,"total":2.34,"qib":3.25,"nii":0.66,"retail":2.1,"gmp_pct":null,"gmp_trend":null,"ofs_pct":null,"pe":"fair","status":"Open Date: 21 Oct 2026 \u00b7 Close Date: 23 Oct 2026 \u00b7 Listing Date: 28 Oct 2026"},{"name":"Sahajanand Medical Technologies","price":344.0,"lot":43,"size_cr":475.48,"total":null,"qib":null,"nii":8.56,"retail":null,"gmp_pct":null,"gmp_trend":null,"ofs_pct":100.0,"pe":"fair","status":"Open Date: 15 Oct 2026 \u00b7 Close Date: 19 Oct 2026 \u00b7 Listing Date: 23 Oct 2026"},{"name":"Omara Ventures India","price":311.0,"lot":400,"size_cr":41.99,"total":null,"qib":null,"nii":1.63,"retail":null,"gmp_pct":null,"gmp_trend":null,"ofs_pct":0.0,"pe":"fair","status":"Close Date: 05 Oct 2026 \u00b7 Listing Date: 08 Oct 2026"},{"name":"Ravita Engineering Services","price":112.0,"lot":1200,"size_cr":116.05,"total":7.11,"qib":13.21,"nii":7.42,"retail":3.5,"gmp_pct":null,"gmp_trend":null,"ofs_pct":0.0,"pe":"fair","status":"Open Date: 14 Oct 2026 \u00b7 Close Date: 16 Oct 2026 \u00b7 Listing Date: 22 Oct 2026"},{"name":"Vaibhav Vyapaar","price":54.0,"lot":2000,"size_cr":42.1,"total":3.23,"qib":1.61,"nii":6.65,"retail":2.7,"gmp_pct":null,"gmp_trend":null,"ofs_pct":100.0,"pe":"fair","status":"Open Date: 13 Oct 2026 \u00b7 Close Date: 15 Oct 2026 \u00b7 Listing Date: 21 Oct 2026"}],"updated":"29 Oct 2026, late night (IST)","note":"Library refreshed from the live ExitIQ API (IPOTrack + IPOWatch cross-checked). Open-IPO figures move daily \u2014 the app verifies live on every check anyway."};
 function fillList(d){
  const dl=document.getElementById('ipolist'); dl.innerHTML=''; const hl=document.getElementById('herolist'); if(hl)hl.innerHTML='';
  d.ipos.forEach(p=>{const o=document.createElement('option');o.value=p.name;dl.appendChild(o); if(hl){const o2=document.createElement('option');o2.value=p.name;hl.appendChild(o2);}});
@@ -259,8 +264,10 @@ function renderHero(p){
  hr.innerHTML=`<div style="border:2px solid ${col};border-radius:10px;padding:12px">
  <div style="font-size:17px"><b>${p.name||''}</b> <span class="reasons">${p.status||''}</span></div>
  <div style="font-size:24px;font-weight:700;color:${col};margin:6px 0">${r.decision}</div>
- <div class="reasons">Expected listing gain: <b>${r.lo>=0?'+':''}${r.lo.toFixed(0)}% to +${r.hi.toFixed(0)}%</b> (headline ${r.src}: ${r.gainH>=0?'+':''}${r.gainH.toFixed(1)}%) \u00B7 \u2248 <b>\u20B9${(r.price*(1+r.gainH/100)).toFixed(0)}</b>/share \u00B7 Profit chance: <b>${(r.prob*100).toFixed(0)}%</b><br>AI model says ${r.gain>=0?'+':''}${r.gain.toFixed(1)}%${(p.gmp_pct!==null&&p.gmp_pct!==undefined)?' \u00B7 GMP says '+(p.gmp_pct>=0?'+':'')+p.gmp_pct+'%':''}</div>
- ${(p.retail&&p.retail>1.05?`<div class="reasons">\uD83C\uDF9F\uFE0F Retail allotment odds \u2248 <b>1 in ${Math.round(p.retail)}</b> (retail subscribed ${p.retail}x \u2014 allotment is a lottery at this demand)</div>`:'')}
+ <div class="reasons">Expected listing gain: <b>${Math.abs(r.lo)<0.5?'0':(r.lo>=0?'+':'')+r.lo.toFixed(0)}% to +${r.hi.toFixed(0)}%</b> (headline ${r.src}: ${r.gainH>=0?'+':''}${r.gainH.toFixed(1)}%) \u00B7 \u2248 <b>\u20B9${(r.price*(1+r.gainH/100)).toFixed(0)}</b>/share \u00B7 Profit chance: <b>${(r.prob*100).toFixed(0)}%</b><br>AI model says ${r.gain>=0?'+':''}${r.gain.toFixed(1)}%${(p.gmp_pct!==null&&p.gmp_pct!==undefined)?' \u00B7 GMP says '+(p.gmp_pct>=0?'+':'')+p.gmp_pct+'%':''}</div>
+ ${r.conflict?`<div class="reasons" style="color:#e8a13a">\u26A0\uFE0F <b>Signals conflict</b> — AI model ${r.gain>=0?'+':''}${r.gain.toFixed(0)}% vs GMP ${p.gmp_pct>=0?'+':''}${p.gmp_pct}%. Lower confidence: read the risk flags before deciding.</div>`:''}
+ ${(p.retail&&p.retail>1.05?`<div class="reasons">\uD83C\uDF9F\uFE0F Retail allotment odds \u2248 <b>1 in ${p.retail<2?p.retail.toFixed(1):Math.round(p.retail)}</b> (retail subscribed ${p.retail}x \u2014 allotment is a lottery at this demand)</div>`:'')}
+ ${(p.retail&&p.retail>1.05&&p.lot?`<div class="reasons">\uD83D\uDCB0 Expected value of one application \u2248 <b>\u20B9${Math.round(r.price*r.gainH/100*p.lot/p.retail)}</b> (1-in-${p.retail<2?p.retail.toFixed(1):Math.round(p.retail)} chance \u00D7 \u20B9${Math.round(r.price*r.gainH/100*p.lot)} expected gain per lot) \u2014 your \u20B9${Math.round(r.price*p.lot)} stays blocked about a week either way. Allotment luck, not the gain %, is the real bottleneck.</div>`:'')}
  ${r.pros.length?`<div style="margin-top:6px"><b class="green">Why it can rise</b><ul class="reasons">${r.pros.slice(0,3).map(x=>`<li>${x}</li>`).join('')}</ul></div>`:''}
  ${r.risks.length?`<div style="margin-top:4px"><b class="red">Why you could lose</b><ul class="reasons">${r.risks.slice(0,3).map(x=>`<li>${x}</li>`).join('')}</ul></div>`:''}
  <div class="reasons" style="margin-top:6px">${trust}. Full numbers and all reasons are in the Should I Apply section below.<br>ExitIQ signal \u2014 educational only, not investment advice. Chances, not guarantees.</div>
@@ -295,15 +302,33 @@ function applyData(p, noteText){
  renderHero(p);
 }
 const MEMO={};
+function findLocal(name){
+ const q=name.toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+ const exact=(IPOS_LIST||[]).find(x=>x.name.toLowerCase()===name.toLowerCase()); if(exact)return exact;
+ const stop=new Set(['ipo','limited','ltd','india','the','and']);
+ const qt=new Set(q.split(' ').filter(w=>w.length>2&&!stop.has(w)));
+ if(!qt.size)return null;
+ let best=null,bs=0;
+ for(const x of IPOS_LIST||[]){
+   const xt=new Set(x.name.toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(' ').filter(w=>!stop.has(w)));
+   const inter=[...qt].filter(w=>xt.has(w)).length;
+   const sc=inter/Math.max(1,qt.size);
+   if(sc>bs){bs=sc;best=x;}
+ }
+ if(bs>=0.6)return best;
+ const sq=q.replace(/ /g,'');
+ if(sq.length>=4){ const hit=(IPOS_LIST||[]).find(x=>{const xs=x.name.toLowerCase().replace(/[^a-z0-9]/g,''); return xs.includes(sq)||sq.includes(xs);}); if(hit)return hit; }
+ return null;
+}
 function pickIPO(){
  const name=document.getElementById('iponame').value.trim();
  if(!name)return;
- const local=(IPOS_LIST||[]).find(x=>x.name.toLowerCase()===name.toLowerCase());
- const memo=MEMO[name.toLowerCase()];
+ const local=findLocal(name);
+ const memo=MEMO[name.toLowerCase()]||(local?MEMO[local.name.toLowerCase()]:null);
  if(memo){ applyData(memo, memo.__note); return; }
  window.__quickShown=false;
- if(local){ window.__quickShown=true; applyData(local, '\u26A1 Quick result from saved data (updated '+IPOS_UPDATED+') — the agent team is verifying live right now, this panel will refresh itself in a few seconds…'); }
- document.getElementById('iponote').textContent='Fetching LIVE numbers for '+name+'… (usually ~2s; up to ~50s only if the free server was asleep)';
+ if(local){ window.__quickShown=true; applyData(local, '\u26A1 Instant result from saved data (updated '+IPOS_UPDATED+'). A live cross-check runs silently in the background — this panel updates only if fresher numbers actually differ.'); }
+ if(!local)document.getElementById('iponote').textContent='Fetching LIVE numbers for '+name+'… (usually ~2s; up to ~50s only if the free server was asleep)';
  fetchIPO(name).then(d=>{
    if(!d.found)throw new Error(d.error||'not found');
    const confBadge = d.confidence==='high'?'\uD83D\uDFE2 Trust: HIGH — two sources agree':(d.confidence==='medium'?'\uD83D\uDFE1 Trust: MEDIUM — check the notes below':'\uD83D\uDD34 Trust: LOW — thin data, verify before acting');

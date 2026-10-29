@@ -42,3 +42,10 @@ Top features with GMP: gmp_pct 0.48, log_subscription 0.13, brokers_subscribe 0.
   same IPO at 65x subscription -> +22.6% predicted; at 1.1x -> -5.9%.
 - Limits: data ends Dec 2023; category-wise subscription (QIB/NII/Retail split) was present
   for only 78/418 rows, and RHP fundamentals (ROE, debt) for <25% - adding those is v3's job.
+
+## Addendum (2026-10-29): baselines, blend test, and which model is deployed
+- Always-UP direction baseline, test 2022-23 (n=94): 74.5%. The deployed model's 73% direction does NOT beat it; the model's edge is gain sizing (MAE 15.4% vs naive-median 22.1%) and probability ranking (AUC 0.764).
+- GMP subset (n=72 test): GMP rule MAE 11.3% vs XGBoost+GMP 15.0%; bootstrap 95% CI for the difference: +1.6 to +6.0 points (excludes 0). Always-UP on this subset: 75.0% (GMP direction 71%, model 65%).
+- Blend test: weight chosen on 2020-21 came out 0.0 (pure GMP). A model+GMP blend does NOT beat the GMP rule on this data, so the app headlines GMP when it exists and uses the model as the probability/risk layer.
+- Deployed model: compact XGBoost exported to JSON, running in the browser (MAE 15.4%, R2 0.419). The research RandomForest (14.3%) was not deployed: 400 deep trees are too heavy to ship to a phone browser; the compact XGBoost exports cleanly.
+- Caveats: GMP coverage is ~112/418 IPOs and skews to hotter issues (biased subset). Training data ends Dec 2023; the live scorecard (predictions.json, committed before listing) is the real out-of-sample test for 2026 IPOs.
