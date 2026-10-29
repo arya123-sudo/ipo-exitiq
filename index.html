@@ -177,16 +177,32 @@ function fillList(d){
  document.getElementById('iponote').textContent='IPO data updated: '+d.updated+'. '+d.note;
  IPOS_LIST=d.ipos;
 }
-function pickIPO(){
- const name=document.getElementById('iponame').value.trim().toLowerCase();
- const p=(IPOS_LIST||[]).find(x=>x.name.toLowerCase()===name);
- if(!p)return;
+const API_BASE = 'https://ipo-exitiq-api.onrender.com';
+function applyData(p, noteText){
  const set=(id,v)=>{if(v!==null&&v!==undefined)document.getElementById(id).value=v;};
  set('price',p.price); set('size',p.size_cr); set('lot',p.lot); set('sub_x',p.total);
  set('qib',p.qib); set('nii',p.nii); set('retail',p.retail); set('ofs',p.ofs_pct);
- set('gmp',p.gmp_pct); set('gmp_trend',p.gmp_trend); set('pe',p.pe);
- document.getElementById('iponote').textContent=p.name+' — '+p.status+'. Numbers filled from live data ('+(IPOS_UPDATED||'')+'). Press Predict, or it is already done below.';
+ set('gmp',p.gmp_pct); if(p.gmp_trend)set('gmp_trend',p.gmp_trend); if(p.pe)set('pe',p.pe);
+ document.getElementById('iponote').innerHTML = noteText;
  predict();
+}
+function pickIPO(){
+ const name=document.getElementById('iponame').value.trim();
+ if(!name)return;
+ const local=(IPOS_LIST||[]).find(x=>x.name.toLowerCase()===name.toLowerCase());
+ document.getElementById('iponote').textContent='Fetching LIVE numbers for '+name+'… (first fetch can take ~30–50s while the free server wakes up)';
+ fetch(API_BASE+'/ipo?name='+encodeURIComponent(name)).then(r=>r.json()).then(d=>{
+   if(!d.found)throw new Error(d.error||'not found');
+   const confBadge = d.confidence==='high'?'\uD83D\uDFE2 Trust: HIGH — two sources agree':(d.confidence==='medium'?'\uD83D\uDFE1 Trust: MEDIUM — check the notes below':'\uD83D\uDD34 Trust: LOW — thin data, verify before acting');
+   const miss=['price','size_cr','total','qib','gmp_pct'].filter(k=>d[k]===null||d[k]===undefined);
+   const note=`<b>${d.name}</b> — ${d.status||''}<br>${confBadge}<br>\uD83D\uDD51 Live-fetched ${d.fetched_at} from <a href="${d.sources.primary}" target="_blank">IPOTrack</a>${d.sources.cross_check?` + <a href="${d.sources.cross_check}" target="_blank">IPOWatch</a>`:''} cross-check.<br>`+
+     (d.cross_check||[]).map(c=>c.startsWith('WARNING')?`<span style="color:#e5534b">${c}</span>`:c).join('<br>')+
+     (miss.length?`<br>Not published yet (left blank, never guessed): ${miss.join(', ')}`:'');
+   applyData(d, note);
+ }).catch(e=>{
+   if(local){ applyData(local, 'Live server unreachable — showing my last-saved data for '+local.name+' ('+IPOS_UPDATED+'). '+local.status); }
+   else{ document.getElementById('iponote').textContent='Could not fetch live data for "'+name+'" ('+e.message+'). Check the spelling, or fill the numbers manually below.'; }
+ });
 }
 document.getElementById('iponame').addEventListener('change',pickIPO);
 try{ fetch('ipos.json').then(r=>r.json()).then(d=>{IPOS_UPDATED=d.updated;fillList(d);}).catch(()=>{IPOS_UPDATED=FALLBACK_IPOS.updated;fillList(FALLBACK_IPOS);}); }
