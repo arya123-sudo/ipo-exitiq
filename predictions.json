@@ -1,1 +1,90 @@
-{"about":"IPO ExitIQ public prediction log. This file is committed to git BEFORE each IPO lists; the commit date is the timestamp and cannot be backdated. After each listing, actual_close_pct and result are filled in — win or lose.","hits":0,"miss_definition":"A prediction is a MISS if the actual listing-day closing gain has the opposite sign to the headline estimate, OR differs from it by more than 15 percentage points. Defined in advance on 2026-10-29; not to be redefined later.","misses":0,"predictions":[{"actual_close_pct":null,"headline_pct":29.3,"headline_source":"GMP rule","ipo":"BLS Polymers","listing_date":"2026-11-03","model_pct":17.0,"recorded":"2026-10-29","result":"pending","verdict":"APPLY"},{"actual_close_pct":null,"headline_pct":1.8,"headline_source":"GMP rule","ipo":"EAAA India Alternatives","listing_date":"2026-11-02","model_pct":2.1,"recorded":"2026-10-29","result":"pending","verdict":"APPLY, BUT KNOW THE RISKS"},{"actual_close_pct":null,"headline_pct":9.3,"headline_source":"GMP rule","ipo":"M.K.Sons Fine Jewels","listing_date":"2026-11-04","model_pct":1.8,"recorded":"2026-10-29","result":"pending","verdict":"AVOID / SKIP"},{"actual_close_pct":null,"headline_pct":11.0,"headline_source":"GMP rule","ipo":"Bombay Coated & Special Steels","listing_date":"2026-11-05","model_pct":-2.1,"note":"Recorded while subscription was still open; final subscription figures may move the live verdict.","recorded":"2026-10-29","result":"pending","verdict":"APPLY, BUT KNOW THE RISKS"}],"resolved":0,"worked_examples_not_counted":[{"actual_close_pct":26.7,"ipo":"Jio Platforms","model_pct":24.8,"note":"Model replay built AFTER listing (the builder's own trade: 12 shares allotted at Rs 1,119, sold at Rs 1,358 = +21.4%). Shown as a worked example only — never counted in the scorecard."}]}
+{
+ "about": "IPO ExitIQ public prediction log. Committed to git BEFORE each IPO lists. The trustworthy timestamp is the time GitHub's servers received the push (repo Activity tab), not the locally-set commit date; the web page carrying these predictions is also archived on the Wayback Machine. After each listing, actuals are filled in \u2014 win or lose.",
+ "hits": 0,
+ "miss_definition": "Tightened 2026-10-30, before any of the four listings resolved (original 2026-10-29 rule: opposite sign OR >15 points \u2014 preserved in git history). Primary target: listing-day CLOSE (open also recorded). Headline HIT = same sign AND |error| <= max(10 points, 50% of |headline|). The exact error in points is always reported. The AI model is scored separately: model_error_pts (running MAE) and prob_call (right if the actual sign matches prob_pct > 50).",
+ "misses": 0,
+ "predictions": [
+  {
+   "actual_close_pct": null,
+   "actual_open_pct": null,
+   "headline_error_pts": null,
+   "headline_pct": 29.3,
+   "headline_source": "GMP rule",
+   "ipo": "BLS Polymers",
+   "listing_date": "2026-11-03",
+   "model_error_pts": null,
+   "model_pct": 17.0,
+   "prob_call": null,
+   "prob_pct": 97,
+   "recorded": "2026-10-29",
+   "result": "pending",
+   "verdict": "APPLY"
+  },
+  {
+   "actual_close_pct": null,
+   "actual_open_pct": null,
+   "headline_error_pts": null,
+   "headline_pct": 1.8,
+   "headline_source": "GMP rule",
+   "ipo": "EAAA India Alternatives",
+   "listing_date": "2026-11-02",
+   "model_error_pts": null,
+   "model_pct": 2.1,
+   "prob_call": null,
+   "prob_pct": 43,
+   "recorded": "2026-10-29",
+   "result": "pending",
+   "verdict": "APPLY, BUT KNOW THE RISKS"
+  },
+  {
+   "actual_close_pct": null,
+   "actual_open_pct": null,
+   "headline_error_pts": null,
+   "headline_pct": 9.3,
+   "headline_source": "GMP rule",
+   "ipo": "M.K.Sons Fine Jewels",
+   "listing_date": "2026-11-04",
+   "model_error_pts": null,
+   "model_pct": 1.8,
+   "prob_call": null,
+   "prob_pct": 24,
+   "recorded": "2026-10-29",
+   "result": "pending",
+   "verdict": "AVOID / SKIP"
+  },
+  {
+   "actual_close_pct": null,
+   "actual_open_pct": null,
+   "headline_error_pts": null,
+   "headline_pct": 11.0,
+   "headline_source": "GMP rule",
+   "ipo": "Bombay Coated & Special Steels",
+   "listing_date": "2026-11-05",
+   "model_error_pts": null,
+   "model_pct": -2.1,
+   "note": "Recorded while subscription was still open; final subscription figures may move the live verdict.",
+   "prob_call": null,
+   "prob_pct": 49,
+   "recorded": "2026-10-29",
+   "result": "pending",
+   "verdict": "APPLY, BUT KNOW THE RISKS"
+  }
+ ],
+ "resolved": 0,
+ "scoring": {
+  "also_recorded": "listing_day_open",
+  "headline_mae": null,
+  "model_mae": null,
+  "primary_target": "listing_day_close",
+  "prob_calls_right": 0,
+  "prob_calls_total": 0
+ },
+ "worked_examples_not_counted": [
+  {
+   "actual_close_pct": 26.7,
+   "ipo": "Jio Platforms",
+   "model_pct": 24.8,
+   "note": "Model replay built AFTER listing (the builder's own trade: 12 shares allotted at Rs 1,119, sold at Rs 1,358 = +21.4%). Shown as a worked example only \u2014 never counted in the scorecard."
+  }
+ ]
+}
