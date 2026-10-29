@@ -25,7 +25,7 @@ _sitemap = {"slugs": [], "at": 0}
 
 def fetch(url: str) -> str:
     req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=25) as r:
+    with urllib.request.urlopen(req, timeout=15) as r:
         return r.read().decode("utf-8", "ignore")
 
 
@@ -73,7 +73,7 @@ def num(pat, t, cast=float):
 
 def parse(html: str, slug: str) -> dict:
     t = text_of(html)
-    gmp_m = re.search(r"GMP Today ₹(-?[\d,]*\.?\d*) \((-?[\d.]+)%\)", t)
+    gmp_m = re.search(r"GMP Today ₹(-?[\d,]*\.?\d*) \((-?[\d.]+)%\)", t) or re.search(r"GMP \(unofficial\) ₹(-?[\d,]*\.?\d*) \((-?[\d.]+)%\)", t, re.I)
     subs = re.search(r"overall ([\d.]+)x, QIB ([\d.]+)x, retail ([\d.]+)x", t)
     fresh = num(r"Fresh Issue ₹([\d.]+) Cr", t)
     ofs = num(r"Offer For Sale \(OFS\) ₹([\d.]+) Cr", t)
@@ -93,12 +93,12 @@ def parse(html: str, slug: str) -> dict:
         m = re.search(lbl + r" (\d{1,2} \w{3} \d{4})", t)
         if m:
             dates.append(f"{lbl.replace('IPO ', '')}: {m.group(1)}")
-    pairs = re.findall(r"[Pp]rice [Bb]and(?: Set at)? ₹[\d.]+ [–-] ₹([\d.]+),? Lot(?: Size)? (\d+) Shares", t)
+    pairs = re.findall(r"price band(?: set at)? ₹[\d.]+ [–-] ₹([\d.]+),? lot(?: size)? (\d+) shares", t, re.I)
     anchored = pairs[0] if pairs else None
     out = {
         "name": slug.replace("-", " ").title(),
         "slug": slug,
-        "price": float(anchored[0]) if anchored else num(r"Price Band ₹[\d.]+ [–-] ₹([\d.]+)", t),
+        "price": float(anchored[0]) if anchored else (float(re.search(r"price band ₹[\d.]+ [–-] ₹([\d.]+)", t, re.I).group(1)) if re.search(r"price band ₹[\d.]+ [–-] ₹([\d.]+)", t, re.I) else None),
         "lot_anchor": int(anchored[1]) if anchored else None,
         "lot": num(r"Lot Size (\d+) Shares", t, int),
         "size_cr": total_cr,
@@ -138,16 +138,26 @@ def ipo(name: str):
     hit = _cache.get(slug)
     if hit and time.time() - hit["at"] < 600:
         return hit["data"]
-    try:
-        data = parse(fetch(f"https://ipotrack.in/ipo/{slug}"), slug)
-    except Exception as e:
-        return {"found": False, "error": f"Live source failed: {e}"}
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_main = ex.submit(fetch, f"https://ipotrack.in/ipo/{slug}")
+        f_watch = ex.submit(fetch, f"https://ipowatch.in/{slug}-ipo-subscription-status/")
+        try:
+            data = parse(f_main.result(), slug)
+        except Exception as e:
+            return {"found": False, "error": f"Live source failed: {e}"}
+        try:
+            watch_html = f_watch.result()
+        except Exception:
+            watch_html = None
     if data.pop("lot_anchor", None) and not data.get("lot"):
         data["lot"] = data.get("lot")
     # --- second source: IPOWatch subscription table (cross-check + gap fill) ---
     cross, sources = [], {"primary": data["source"]}
     try:
-        w = text_of(fetch(f"https://ipowatch.in/{slug}-ipo-subscription-status/"))
+        if watch_html is None:
+            raise RuntimeError("watch fetch failed")
+        w = text_of(watch_html)
         w = w.replace(" ", "|")
         wcols = {}
         for lbl, key in (("QIB", "qib"), ("NII", "nii"), ("RII", "retail"), ("Total", "total")):
