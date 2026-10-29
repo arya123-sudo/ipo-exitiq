@@ -151,7 +151,7 @@ function sellSignal(){
  document.getElementById('out2').innerHTML=`<div class="verdict">${action}</div>
  <div class="reasons">Sell confidence: <b>${sp}%</b> · Your position: <b>${gainNow>=0?'+':''}${gainNow.toFixed(1)}%</b> (${pnl>=0?'+':''}₹${pnl.toFixed(0)} on ${shares} shares)<br>
  Trailing stop-loss: <b>₹${stop}</b> — if it falls below this, exit no matter what.
- <ul>${R.map(r=>`<li>${r}</li>`).join('')}</ul></div>` + scenarios(issue,cur,shares);
+ <ul>${R.map(r=>`<li>${r}</li>`).join('')}</ul></div>` + scenarios(issue,cur,shares) + timeMachine(issue,cur,shares);
 }
 
 const POSW={surge:2,rally:2,gain:1,gains:1,strong:1,oversubscribed:2,robust:1,growth:1,profit:1,profits:1,beat:1,upgrade:1,bullish:2,record:1,premium:1,demand:1,positive:1,wins:1,order:1,orders:1,expansion:1,rising:1,jumps:1,soars:2,listing:0,multibagger:2,subscribe:1};
@@ -165,6 +165,25 @@ function analyseNews(){
  const lab=sc>0.15?'POSITIVE 🟢':sc<-0.15?'NEGATIVE 🔴':'NEUTRAL 🟡';
  sel.value=sc>0.15?'0.5':sc<-0.15?'-0.4':'0';
  out.innerHTML=`News mood: <b>${lab}</b> (score ${sc.toFixed(2)}) — this mood is now fed into the Sell / Hold signal below.`;
+}
+
+function timeMachine(issue,cur,shares){
+ // "Time Machine" (idea inspired by the Day Trader skill reel): rehearse the rest of
+ // listing day 1,000 times using the REAL open-to-close drift distribution of 418 past
+ // IPOs (2009-2023), then compare holding vs selling now. A rehearsal, not a prophecy.
+ const A=[[-18,0.01],[-5.1,0.25],[0.6,0.50],[5.8,0.75],[18,0.99]];
+ function sample(){ const u=Math.random(); for(let i=1;i<A.length;i++){ if(u<=A[i][1]){ const [x0,y0]=A[i-1],[x1,y1]=A[i]; return x0+(x1-x0)*(u-y0)/(y1-y0); } } return 18; }
+ const N=1000, closes=[];
+ for(let i=0;i<N;i++) closes.push(cur*(1+sample()/100));
+ closes.sort((a,b)=>a-b);
+ const med=closes[N/2], pHoldWins=closes.filter(c=>c>cur).length/N*100, pBad=closes.filter(c=>c<=cur*0.95).length/N*100;
+ const sellPL=(cur-issue)*shares, medPL=(med-issue)*shares;
+ return `<div style="margin-top:12px"><b>\u23F1\uFE0F Time Machine — today rehearsed 1,000 times</b>
+ <div class="reasons" style="margin-top:6px">Using how 418 real IPOs actually moved from open to close, and treating the current price as the starting bell:<br>
+ \u2022 Holding beat selling now in <b>${pHoldWins.toFixed(0)}%</b> of the rehearsals<br>
+ \u2022 The middle rehearsal closed at <b>\u20B9${med.toFixed(0)}</b> — a P&amp;L of <b>${medPL>=0?'+':''}\u20B9${medPL.toFixed(0)}</b> vs <b>${sellPL>=0?'+':''}\u20B9${sellPL.toFixed(0)}</b> locked by selling now<br>
+ \u2022 But <b>${pBad.toFixed(0)}%</b> of rehearsals ended 5% or more BELOW the current price — that is the risk the stop-loss above protects you from.<br>
+ A rehearsal from history, not a prophecy — it shows the odds shape, the decision stays yours.</div></div>`;
 }
 function scenarios(issue,cur,shares){
  const locked=(cur-issue)*shares;
