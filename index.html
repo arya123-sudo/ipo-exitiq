@@ -36,6 +36,9 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 <div class="tabs"><div class="tab on" id="t1" onclick="showTab(1)">Should I Apply?</div><div class="tab" id="t2" onclick="showTab(2)">Sell or Hold?</div></div>
 
 <div class="card" id="tab1">
+<label>IPO name — pick from the list or type any name; the app fills the numbers below automatically.</label><input id="iponame" list="ipolist" placeholder="Start typing an IPO name…" autocomplete="off">
+<datalist id="ipolist"></datalist>
+<div id="iponote" class="small" style="margin:6px 0"></div>
 <label>Total subscription (x times) — how many times more people applied than shares available. Find it on Chittorgarh / InvestorGain on the closing day. (BLS: total 35.25x; retail alone was 29.8x — this model uses the TOTAL.)</label><input id="sub_x" type="number" step="any" value="35.25">
 <label>Issue size (₹ crore)</label><input id="size" type="number" step="any" value="255">
 <label>Issue price (₹)</label><input id="price" type="number" step="any" value="150">
@@ -252,8 +255,8 @@ function heroAnalyse(){
  let si=0; const hr0=document.getElementById('hero_result');
  hr0.innerHTML='<span class="reasons">'+steps[0]+'</span>';
  window.__heroTimer=setInterval(()=>{si=Math.min(si+1,steps.length-1); hr0.innerHTML='<span class="reasons">'+steps[si]+'</span>';},6000);
- document.getElementById('iponame').value=name;
- pickIPO();
+ const ipn=document.getElementById('iponame'); if(ipn)ipn.value=name;
+ pickIPO(name);
 }
 function renderHero(p){
  if(window.__heroTimer){clearInterval(window.__heroTimer);window.__heroTimer=null;}
@@ -321,8 +324,8 @@ function findLocal(name){
  if(sq.length>=4){ const hit=(IPOS_LIST||[]).find(x=>{const xs=x.name.toLowerCase().replace(/[^a-z0-9]/g,''); return xs.includes(sq)||sq.includes(xs);}); if(hit)return hit; }
  return null;
 }
-function pickIPO(){
- const name=document.getElementById('iponame').value.trim();
+function pickIPO(passed){
+ const name=(typeof passed==='string'?passed:document.getElementById('iponame').value).trim();
  if(!name)return;
  const local=findLocal(name);
  const memo=MEMO[name.toLowerCase()]||(local?MEMO[local.name.toLowerCase()]:null);
