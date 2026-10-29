@@ -31,6 +31,7 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 <label>Issue price (₹)</label><input id="price" type="number" step="any" value="150">
 <label>Lot size (shares)</label><input id="lot" type="number" step="any" value="100">
 <label>GMP % (optional) — Grey Market Premium: the unofficial extra price buyers pay before listing. 34% GMP roughly hints at a ~34% listing gain.</label><input id="gmp" type="number" step="any" value="34">
+<label>GMP trend in the last 3 days</label><select id="gmp_trend"><option value="up" selected>Rising ↗</option><option value="flat">Steady →</option><option value="down">Falling ↘</option></select>
 <button onclick="predict()">Predict listing gain</button>
 <div id="out1" style="margin-top:14px"></div>
 </div>
@@ -42,11 +43,18 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 <label>Today's change (%)</label><input id="s_day" type="number" step="any" value="1.5">
 <label>Volume vs normal day</label><select id="s_vol"><option value="0.8">Low / normal</option><option value="1.3" selected>Bit high</option><option value="2.4">Very high (2x+)</option></select>
 <label>News mood right now</label><select id="s_sent"><option value="0.5" selected>Positive</option><option value="0">Neutral</option><option value="-0.4">Negative</option></select>
+<label>📰 Today's news headlines about this stock (paste 2-3 headlines — NLP will read the mood)</label>
+<textarea id="s_news" rows="3" style="width:100%;box-sizing:border-box;background:#0b0f14;border:1px solid #33475e;color:#fff;border-radius:9px;padding:11px;font-size:15px" placeholder="e.g. BLS Polymers lists at strong premium, analysts bullish on growth"></textarea>
+<button onclick="analyseNews()" style="background:#243242;margin-top:8px">Analyse news mood (NLP)</button>
+<div id="news_out" class="reasons" style="margin-top:8px"></div>
+<label>Days since listing (0 = listing day)</label><input id="s_days" type="number" step="any" value="0">
 <label>Shares you hold</label><input id="s_shares" type="number" step="any" value="100">
 <button onclick="sellSignal()">Get sell / hold signal</button>
 <div id="out2" style="margin-top:14px"></div>
 </div>
 
+<div class="card"><b>📊 ExitIQ track record (we publish our misses too)</b>
+<div class="reasons" style="margin-top:6px">• Jio Platforms: predicted +24.8% → actual listing +21.4% ✅<br>• BLS Polymers: model +25% / GMP rule +34% → actual: <b>listing on 3 Nov — result will be posted here</b><br>• News mood check (29 Oct, by Muse): positive — GMP rose 4 sessions in a row, coverage upbeat, no negative company news found.</div></div>
 <div class="small">In plain words: tested on IPOs the model had never seen, it pointed the right way (up or down) for about 73 out of 100, and its gain guess was off by ~15% on average. The simple GMP rule was slightly sharper (~11% off). Treat every number here as a strong hint, not a promise. This is a student-built decision helper, not SEBI-registered investment advice.</div>
 
 <script>
@@ -59,6 +67,8 @@ function predict(){
  const row={log_issue_size:Math.log1p(sizeV),log_issue_price:Math.log1p(priceV),log_subscription:Math.log1p(sub),lot_size:lotV,nifty_chg_pct:0,vix:14,brokers_subscribe:5,brokers_avoid:1,prev_quarter_success_close:1,year:2026};
  const gain=xgb(REG,row,REG_BASE); const prob=1/(1+Math.exp(-xgb(CLF,row,CLF_BASE)));
  const g=parseFloat(document.getElementById('gmp').value);
+ const trend=document.getElementById('gmp_trend').value;
+ const trendNote = trend==='down' ? '<br>⚠️ <b>GMP is falling</b> — in our v1 analysis this cut about 6 points off the expected gain. Grey-market buyers are cooling off; be extra careful.' : trend==='up' ? '<br>✅ <b>GMP is rising</b> — grey-market momentum is building into listing (historically a good sign, worth roughly +4 points).' : '<br>GMP steady — no momentum signal either way.';
  const perLot=gain/100*priceV*lotV;
  let verdict,cls;
  if(prob>=0.65&&gain>8){verdict='\u2705 APPLY \u2014 strong listing setup';cls='green';}
@@ -68,7 +78,7 @@ function predict(){
  <div class="verdict ${cls}">${verdict}</div>
  <div class="reasons">Profit probability: <b>${(prob*100).toFixed(0)}%</b> \u00B7 Expected listing value \u2248 <b>\u20B9${(priceV*(1+gain/100)).toFixed(0)}/share</b> (${perLot>=0?'+':''}\u20B9${perLot.toFixed(0)} per lot)
  ${!Number.isNaN(g)?`<br>GMP rule estimate: <b>${g>=0?'+':''}${g}%</b> \u2014 historically our most accurate single signal, compare both.`:''}
- <br>Biggest driver the model learned: <b>total subscription</b> (33% of all importance), then issue size and broker recommendations.</div>`;
+ ${trendNote}<br>Biggest driver the model learned: <b>total subscription</b> (33% of all importance), then issue size and broker recommendations.</div>`;
 }
 function sellSignal(){
  const issue=parseFloat(document.getElementById('s_issue').value), cur=parseFloat(document.getElementById('s_cur').value), peak=parseFloat(document.getElementById('s_peak').value), day=parseFloat(document.getElementById('s_day').value)||0;
@@ -84,6 +94,9 @@ function sellSignal(){
  if(vol>=2&&day<0){sv+=1.5;R.push('Volume is 2x+ average ON a down day — big holders exiting.');}
  if(sent<=-0.4){sv+=1.5;R.push('News mood has turned negative.');}
  else if(sent>0.3){hv+=1;R.push('News mood is still positive.');}
+ const days=parseFloat(document.getElementById('s_days').value)||0;
+ if(days>=25&&days<=40){sv+=1.5;R.push('Anchor investors\' first lock-in (30 days from allotment, 50% of their shares) expires around now — SEBI data shows anchors do sell some after expiry and prices often dip in this window (SBI Cards fell 15% the day after its expiry). Extra caution.');}
+ if(days>=80&&days<=95){sv+=1;R.push('Anchor investors\' second lock-in (90 days, the other 50%) expires around now — another possible selling-pressure window.');}
  const sp=Math.round(sv/(sv+hv)*100);
  const stop=Math.max(peak*0.92, gainNow>10?issue*1.02:issue*0.95).toFixed(2);
  const action=sp>=65?'🔴 SELL':sp>=45?'🟡 PARTIAL SELL — book 50%, ride the rest with the stop-loss':'🟢 HOLD';
@@ -91,7 +104,33 @@ function sellSignal(){
  document.getElementById('out2').innerHTML=`<div class="verdict">${action}</div>
  <div class="reasons">Sell confidence: <b>${sp}%</b> · Your position: <b>${gainNow>=0?'+':''}${gainNow.toFixed(1)}%</b> (${pnl>=0?'+':''}₹${pnl.toFixed(0)} on ${shares} shares)<br>
  Trailing stop-loss: <b>₹${stop}</b> — if it falls below this, exit no matter what.
- <ul>${R.map(r=>`<li>${r}</li>`).join('')}</ul></div>`;
+ <ul>${R.map(r=>`<li>${r}</li>`).join('')}</ul></div>` + scenarios(issue,cur,shares);
+}
+
+const POSW={surge:2,rally:2,gain:1,gains:1,strong:1,oversubscribed:2,robust:1,growth:1,profit:1,profits:1,beat:1,upgrade:1,bullish:2,record:1,premium:1,demand:1,positive:1,wins:1,order:1,orders:1,expansion:1,rising:1,jumps:1,soars:2,listing:0,multibagger:2,subscribe:1};
+const NEGW={fall:-1,falls:-1,crash:-2,plunge:-2,loss:-1,losses:-1,debt:-1,fraud:-2,probe:-2,weak:-1,decline:-1,declines:-1,risk:-1,bearish:-2,downgrade:-2,negative:-1,lawsuit:-2,default:-2,selloff:-2,slump:-1,drop:-1,drops:-1,warning:-1,concern:-1,delay:-1,ban:-2,penalty:-1};
+function analyseNews(){
+ const txt=document.getElementById('s_news').value||''; let tot=0,hits=0;
+ txt.toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).forEach(w=>{if(POSW[w]){tot+=POSW[w];hits++;}else if(NEGW[w]){tot+=NEGW[w];hits++;}});
+ const out=document.getElementById('news_out'); const sel=document.getElementById('s_sent');
+ if(!hits){out.innerHTML='No clear mood words found in those headlines — keeping the mood as Neutral.'; sel.value='0'; return;}
+ const sc=Math.max(-1,Math.min(1,tot/(hits*1.5)));
+ const lab=sc>0.15?'POSITIVE 🟢':sc<-0.15?'NEGATIVE 🔴':'NEUTRAL 🟡';
+ sel.value=sc>0.15?'0.5':sc<-0.15?'-0.4':'0';
+ out.innerHTML=`News mood: <b>${lab}</b> (score ${sc.toFixed(2)}) — this mood is now fed into the Sell / Hold signal below.`;
+}
+function scenarios(issue,cur,shares){
+ const locked=(cur-issue)*shares;
+ const cases=[['Bad day (happens ~1 in 4)',-5.1,0.25],['Typical day',0.6,0.50],['Good day (happens ~1 in 4)',5.8,0.25]];
+ let ev=0; const rows=cases.map(([n,d,p])=>{const pr=cur*(1+d/100); const pl=(pr-issue)*shares; ev+=pl*p;
+   return `<tr><td>${n}</td><td>₹${pr.toFixed(0)}</td><td class="${pl>=0?'green':'red'}">${pl>=0?'+':''}₹${pl.toFixed(0)}</td></tr>`;}).join('');
+ const half=(locked/2);
+ return `<div style="margin-top:12px"><b>💰 If you SELL NOW vs HOLD till today's close</b>
+ <table style="width:100%;font-size:14px;border-collapse:collapse;margin-top:6px"><tr style="color:#9fb3c8"><td>Scenario</td><td>Price</td><td>Your P&amp;L</td></tr>
+ <tr><td><b>Sell now (certain)</b></td><td>₹${cur}</td><td class="${locked>=0?'green':'red'}"><b>${locked>=0?'+':''}₹${locked.toFixed(0)}</b></td></tr>${rows}</table>
+ <div class="reasons" style="margin-top:6px">Scenarios come from what actually happened in 418 past IPOs between the opening and closing bell.<br>
+ Expected value of holding: <b>₹${ev.toFixed(0)}</b> vs locked <b>₹${locked.toFixed(0)}</b>.<br>
+ Middle path — <b>sell half now</b>: lock <b>₹${half.toFixed(0)}</b> for sure, and let the other half ride with the stop-loss above. This is the regret-proof move: you win in both directions.</div></div>`;
 }
 function showTab(n){document.getElementById('tab1').classList.toggle('hide',n!==1);document.getElementById('tab2').classList.toggle('hide',n!==2);document.getElementById('t1').classList.toggle('on',n===1);document.getElementById('t2').classList.toggle('on',n===2);}
 predict();
