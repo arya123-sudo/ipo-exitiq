@@ -42,7 +42,7 @@ def fetch(url: str, tries: int = 2) -> str:
         try:
             req = urllib.request.Request(url, headers={"User-Agent": UA,
                                                        "Accept-Encoding": "gzip"})
-            with urllib.request.urlopen(req, timeout=25) as r:
+            with urllib.request.urlopen(req, timeout=15) as r:
                 raw = r.read()
                 if r.headers.get("Content-Encoding") == "gzip":
                     raw = gzip.decompress(raw)
@@ -295,16 +295,16 @@ def ipo(name: str):
         f_sent = ex.submit(run_sentiment, data["name"])
         f_check = ex.submit(run_checker, data["name"], data)
         try:
-            notes, filled = f_check.result(timeout=40)
+            notes, filled = f_check.result(timeout=8)
             data.update(filled)
             agents["cross_checker"] = "ok"
         except Exception:
-            notes, agents["cross_checker"] = [], "failed"
+            notes, agents["cross_checker"] = [], "timeout — skipped, scout data stands"
         try:
-            senti = f_sent.result(timeout=20)
+            senti = f_sent.result(timeout=4)
             agents["sentiment"] = "ok" if senti.get("ok") else "failed"
         except Exception:
-            senti, agents["sentiment"] = {"ok": False, "headlines": []}, "failed"
+            senti, agents["sentiment"] = {"ok": False, "headlines": []}, "timeout — skipped"
 
     core = [data.get(k) for k in ("price", "total", "qib", "gmp_pct")]
     have = sum(1 for v in core if v is not None)
