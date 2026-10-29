@@ -21,7 +21,7 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 <div class="sub">AI trained on 418 real Indian IPOs. It answers two questions: <b>Should you apply?</b> and <b>Should you sell or hold?</b> It gives chances + reasons, never a guarantee.</div>
 
 <div class="card live"><b>🔴 LIVE TEST — BLS Polymers (your IPO)</b>
-<div class="small" style="margin-top:6px">Allotment: <b>30 Oct</b> · Listing: <b>3 Nov</b> · Retail subscribed 29.8x → allotment ≈ lottery (about 1 in 30). Prefilled below — tap “Predict” in the Apply tab.</div></div>
+<div class="small" style="margin-top:6px">Allotment: <b>30 Oct</b> · Listing: <b>3 Nov</b> · Retail subscribed 29.8x → allotment ≈ lottery (about 1 in 30). BLS numbers are prefilled below and its prediction is already shown — change any number to test another IPO.</div></div>
 
 <div class="tabs"><div class="tab on" id="t1" onclick="showTab(1)">Should I Apply?</div><div class="tab" id="t2" onclick="showTab(2)">Sell or Hold?</div></div>
 
@@ -37,7 +37,7 @@ button{width:100%;background:#e50914;color:#fff;border:0;border-radius:10px;padd
 </div>
 
 <div class="card hide" id="tab2">
-<label>Issue price (₹)</label><input id="s_issue" type="number" step="any" value="150">
+<div class="small" style="margin-bottom:6px">The numbers below are an <b>example</b> (what BLS might look like at ₹195) — on listing day, type the live prices here.</div><label>Issue price (₹)</label><input id="s_issue" type="number" step="any" value="150">
 <label>Current price (₹)</label><input id="s_cur" type="number" step="any" value="195">
 <label>Highest price since listing (₹)</label><input id="s_peak" type="number" step="any" value="201">
 <label>Today's change (%)</label><input id="s_day" type="number" step="any" value="1.5">
@@ -78,7 +78,7 @@ function predict(){
  <div class="verdict ${cls}">${verdict}</div>
  <div class="reasons">Profit probability: <b>${(prob*100).toFixed(0)}%</b> \u00B7 Expected listing value \u2248 <b>\u20B9${(priceV*(1+gain/100)).toFixed(0)}/share</b> (${perLot>=0?'+':''}\u20B9${perLot.toFixed(0)} per lot)
  ${!Number.isNaN(g)?`<br>GMP rule estimate: <b>${g>=0?'+':''}${g}%</b> \u2014 historically our most accurate single signal, compare both.`:''}
- ${trendNote}<br>Biggest driver the model learned: <b>total subscription</b> (33% of all importance), then issue size and broker recommendations.</div>`;
+ ${trendNote}<br>How to read two different numbers: the true listing usually lands <b>between the model and GMP estimates</b> \u2014 when both point the same way (like BLS), trust the direction.<br>Biggest driver the model learned: <b>total subscription</b> (33% of all importance), then issue size and broker recommendations.</div>`;
 }
 function sellSignal(){
  const issue=parseFloat(document.getElementById('s_issue').value), cur=parseFloat(document.getElementById('s_cur').value), peak=parseFloat(document.getElementById('s_peak').value), day=parseFloat(document.getElementById('s_day').value)||0;
