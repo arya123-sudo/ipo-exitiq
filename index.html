@@ -193,11 +193,15 @@ function fillList(d){
 function heroAnalyse(){
  const name=document.getElementById('hero_name').value.trim();
  if(!name){document.getElementById('hero_result').innerHTML='<span class="reasons">Type an IPO name first.</span>';return;}
- document.getElementById('hero_result').innerHTML='<span class="reasons">\u23F3 Analysing '+name+' — fetching live numbers and cross-checking two sources… (first fetch after idle can take ~30–50s while the free server wakes)</span>';
+ const steps=['\u23F3 Waking the live server…','\u23F3 Fetching live numbers for '+name+'…','\u23F3 Cross-checking a second source…','\u23F3 Running the AI model on 418 past IPOs…'];
+ let si=0; const hr0=document.getElementById('hero_result');
+ hr0.innerHTML='<span class="reasons">'+steps[0]+'</span>';
+ window.__heroTimer=setInterval(()=>{si=Math.min(si+1,steps.length-1); hr0.innerHTML='<span class="reasons">'+steps[si]+'</span>';},6000);
  document.getElementById('iponame').value=name;
  pickIPO();
 }
 function renderHero(p){
+ if(window.__heroTimer){clearInterval(window.__heroTimer);window.__heroTimer=null;}
  LAST_IPO=p;
  const r=LAST_RESULT; if(!r)return;
  const hr=document.getElementById('hero_result');
@@ -243,6 +247,7 @@ function pickIPO(){
  });
 }
 document.getElementById('iponame').addEventListener('change',pickIPO);
+try{ fetch(API_BASE+'/').catch(()=>{}); }catch(e){}
 try{ fetch('ipos.json').then(r=>r.json()).then(d=>{IPOS_UPDATED=d.updated;fillList(d);}).catch(()=>{IPOS_UPDATED=FALLBACK_IPOS.updated;fillList(FALLBACK_IPOS);}); }
 catch(e){ IPOS_UPDATED=FALLBACK_IPOS.updated; fillList(FALLBACK_IPOS); }
 </script></body></html>
