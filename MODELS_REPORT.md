@@ -49,3 +49,42 @@ Top features with GMP: gmp_pct 0.48, log_subscription 0.13, brokers_subscribe 0.
 - Blend test: weight chosen on 2020-21 came out 0.0 (pure GMP). A model+GMP blend does NOT beat the GMP rule on this data, so the app headlines GMP when it exists and uses the model as the probability/risk layer.
 - Deployed model: compact XGBoost exported to JSON, running in the browser (MAE 15.4%, R2 0.419). The research RandomForest (14.3%) was not deployed: 400 deep trees are too heavy to ship to a phone browser; the compact XGBoost exports cleanly.
 - Caveats: GMP coverage is ~112/418 IPOs and skews to hotter issues (biased subset). Training data ends Dec 2023; the live scorecard (predictions.json, committed before listing) is the real out-of-sample test for 2026 IPOs.
+
+
+## Addendum 2 (2026-10-30) — Historical Twins + Sell-Rule Backtest (Trader-Skill discipline)
+
+Method borrowed from the day-trader-skill repo's Time Machine: don't trust a model
+number — replay the decision against real history and publish what actually happened.
+
+### Historical Twins (k-nearest past IPOs)
+Distance over standardised log(subscription), log(issue size), log(price) (+GMP when
+both sides have it); estimate = median listing-day CLOSE gain of the k nearest TRAIN
+IPOs (<=2021) for each 2022-23 test IPO. Same time split as the model.
+
+| Estimator | Test | MAE |
+|---|---|---|
+| Twins k=10 | 94 IPOs | 15.7 |
+| Twins k=15 | 94 IPOs | 16.4 |
+| Twins k=10 | 72 with GMP | 13.4 |
+| Twins k=15 | 72 with GMP | 14.6 |
+| (reference) XGBoost web model | 94 / 72 | 15.4 / 15.0 |
+| (reference) GMP rule | 72 | 11.3 |
+
+Verdict: twins are NOT a sharper point estimator than the model — they are comparable.
+Their role in the app is EVIDENCE: the 10 most similar real IPOs and what they actually
+did. k=10 was chosen because it scored best on this same test set, so its 15.7 is
+slightly optimistic — disclosed, not hidden.
+
+### Sell-rule backtest (all 418 IPOs; listing open/high/close recorded)
+| Rule | Mean | Median | Worst decile | Avg regret vs best-of-two |
+|---|---|---|---|---|
+| A Sell all at open | +16.61% | +4.93% | -6.8% | 6.64 |
+| B Hold all to close | +18.25% | +9.23% | -11.8% | 5.01 |
+| C Split 50/50 | +17.43% | +8.04% | -8.5% | 5.83 |
+| D Exit all at +20% target, else close | +7.65% | +13.76% | -10.3% | 15.61 |
+| E Hold w/ stop 10 pts below open* | +20.35% | +10.08% | -9.5% | 2.91 |
+
+Holding beat selling at the open in 52.6% of IPOs. Capping winners at +20% (D) was the
+worst rule on average despite a good median — it amputates the right tail. The stop rule
+(E) scored best, but *only open/high/close are recorded, so E's stop is judged on the
+close and assumes a fill at the stop level — an approximation, printed wherever E is cited.
