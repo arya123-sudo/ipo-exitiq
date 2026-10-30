@@ -1,21 +1,21 @@
 {
- "updated": "29 Oct 2026, late night (IST)",
+ "updated": "30 Oct 2026, evening (IST)",
  "note": "Library refreshed from the live ExitIQ API (IPOTrack + IPOWatch cross-checked). Open-IPO figures move daily \u2014 the app verifies live on every check anyway.",
  "ipos": [
   {
-   "gmp_pct": 29.33,
+   "gmp_pct": 45.33,
    "gmp_trend": "up",
    "lot": 100,
    "name": "BLS Polymers",
-   "nii": 78.75,
+   "nii": 559.2,
    "ofs_pct": 0,
    "pe": "fair",
    "price": 150,
-   "qib": 12.2,
-   "retail": 29.77,
+   "qib": 200.25,
+   "retail": 128.36,
    "size_cr": 255,
    "status": "Closed 29 Oct \u00b7 Allotment 30 Oct \u00b7 Listing 3 Nov",
-   "total": 35.25
+   "total": 241.22
   },
   {
    "name": "EAAA India Alternatives",
