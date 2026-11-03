@@ -2,22 +2,22 @@
  "about": "IPO ExitIQ public prediction log. Committed to git BEFORE each IPO lists. The trustworthy timestamp is the time GitHub's servers received the push (repo Activity tab), not the locally-set commit date; the web page carrying these predictions is also archived on the Wayback Machine. After each listing, actuals are filled in \u2014 win or lose.",
  "hits": 0,
  "miss_definition": "Tightened 2026-10-30, before any of the four listings resolved (original 2026-10-29 rule: opposite sign OR >15 points \u2014 preserved in git history). Primary target: listing-day CLOSE (open also recorded). Headline HIT = same sign AND |error| <= max(10 points, 50% of |headline|). The exact error in points is always reported. The AI model is scored separately: model_error_pts (running MAE) and prob_call (right if the actual sign matches prob_pct > 50).",
- "misses": 0,
+ "misses": 1,
  "predictions": [
   {
-   "actual_close_pct": null,
-   "actual_open_pct": null,
-   "headline_error_pts": null,
+   "actual_close_pct": 79.2,
+   "actual_open_pct": 65.33,
+   "headline_error_pts": 49.9,
    "headline_pct": 29.3,
    "headline_source": "GMP rule",
    "ipo": "BLS Polymers",
    "listing_date": "2026-11-03",
-   "model_error_pts": null,
+   "model_error_pts": 62.2,
    "model_pct": 17.0,
-   "prob_call": null,
+   "prob_call": "right",
    "prob_pct": 97,
    "recorded": "2026-10-29",
-   "result": "pending",
+   "result": "miss",
    "verdict": "APPLY"
   },
   {
@@ -70,14 +70,14 @@
    "verdict": "APPLY, BUT KNOW THE RISKS"
   }
  ],
- "resolved": 0,
+ "resolved": 1,
  "scoring": {
   "also_recorded": "listing_day_open",
-  "headline_mae": null,
-  "model_mae": null,
+  "headline_mae": 49.9,
+  "model_mae": 62.2,
   "primary_target": "listing_day_close",
-  "prob_calls_right": 0,
-  "prob_calls_total": 0
+  "prob_calls_right": 1,
+  "prob_calls_total": 1
  },
  "worked_examples_not_counted": [
   {
