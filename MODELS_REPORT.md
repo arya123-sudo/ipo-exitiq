@@ -88,3 +88,25 @@ Holding beat selling at the open in 52.6% of IPOs. Capping winners at +20% (D) w
 worst rule on average despite a good median — it amputates the right tail. The stop rule
 (E) scored best, but *only open/high/close are recorded, so E's stop is judged on the
 close and assumes a fill at the stop level — an approximation, printed wherever E is cited.
+
+### Live scorecard — first resolved prediction: BLS Polymers, listed 3 Nov 2026
+
+First live out-of-sample resolution, and it is a MISS on both estimators —
+published here, not hidden. Issue price Rs 150; NSE open Rs 248 (+65.33%),
+day high Rs 285 (+90.0%), NSE close Rs 268.80 (+79.20%).
+
+| Estimator | Predicted | Actual close | Error |
+|---|---|---|---|
+| Headline (GMP rule) | +29.3% | +79.2% | 49.9 pts — MISS (hit band was max(10, 14.65) = 14.65 pts) |
+| AI model (XGBoost) | +17.0% | +79.2% | 62.2 pts — MISS |
+| Profit probability | 97% | positive close | call RIGHT (direction only) |
+
+Running live MAEs after 1 of 4 resolved: headline 49.9, model 62.2.
+Lesson so far, stated plainly: both estimators badly UNDER-estimated a
+241.22x-subscribed issue. The GMP rule's backtest MAE of 11.3% (on 72 IPOs
+with GMP data, 2022–23) did not hold here — the pre-listing GMP itself
+(+45.33%) was already ~34 points below the close, and the frozen headline
+(+29.3%, the GMP rule as recorded 29 Oct) was further still. One
+observation proves nothing about the system; the remaining three
+(EAAA, M.K.Sons, Bombay Coated) will say more. No model or rule change is
+made on the back of a single miss.
